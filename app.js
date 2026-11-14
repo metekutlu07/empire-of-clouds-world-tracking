@@ -123,9 +123,9 @@
                           Math.abs(2*0.25/p[5])*1.04, 1);
   }
 
-  const WIDTH=2.4, DEPTH=2.4, HEIGHT=2.3, COLS=13, ROWS=13;
+  const WIDTH=2.4, DEPTH=2.4, HEIGHT=2.3, COLS=15, ROWS=15;
   // Front wall is wall 0, facing the visitor on placement. Opening respects full cells.
-  const PORTAL = {colStart:4,colEnd:8,rowStart:0,rowEnd:9};
+  const PORTAL = {colStart:5,colEnd:10,rowStart:0,rowEnd:11};
   const inPortal = (wall,row,col) => wall===0 && col>=PORTAL.colStart && col<=PORTAL.colEnd && row>=PORTAL.rowStart && row<=PORTAL.rowEnd;
   function chamberGeometry() {
     const vertices = [], uv = [], colors = [], indices = [];
@@ -153,7 +153,7 @@
       count++;
     };
 
-    // Four continuous wall panels, 13 x 13 cells each.
+    // Four continuous wall panels, 15 x 15 cells each.
     for(let wall=0;wall<4;wall++) {
       for(let row=0;row<ROWS;row++)for(let col=0;col<COLS;col++) {
         if((col*11+row*7+wall*17)%19===0 || (portalOpen && inPortal(wall,row,col)))continue;
@@ -274,7 +274,7 @@
     glyphMesh=new THREE.Mesh(geo,chamberMaterial);
     glyphMesh.renderOrder=10;chamber.add(glyphMesh);
     addPortalFrame(chamber);
-    $('detail').textContent=count+' static glyphs · 13 × 13 cells per wall · 2.4 × 2.4 × 2.3 m';
+    $('detail').textContent=count+' static glyphs · 15 × 15 cells per wall · 2.4 × 2.4 × 2.3 m';
   }
 
 
@@ -282,8 +282,19 @@
   function setPrompt(title, note, yes, no){
     $('portalTitle').textContent=title;
     $('portalNote').textContent=note||'';
-    $('portalYes').textContent=yes;
-    $('portalNo').textContent=no;
+    // Chinese is the primary choice; English is a smaller supporting label.
+    for(const [id,label] of [['portalYes',yes],['portalNo',no]]){
+      const [zh,en]=label.split(' · ');
+      const btn=$(id);
+      btn.replaceChildren();
+      const primary=document.createElement('span');
+      primary.className='answerZh';
+      primary.textContent=zh;
+      const secondary=document.createElement('span');
+      secondary.className='answerEn';
+      secondary.textContent=en||'';
+      btn.append(primary,secondary);
+    }
     $('portalPrompt').hidden=false;
   }
   function hidePrompt(){ $('portalPrompt').hidden=true; }
@@ -311,7 +322,7 @@
       color:0xffffff,transparent:true,opacity:.4,depthWrite:false
     })));
     addCubeFrame(miniCube);
-    miniCube.scale.setScalar(.14); // 34 cm wide
+    miniCube.scale.setScalar(.098); // 70% of the previous 34 cm miniature; now ~23.5 cm wide
     const forward=new THREE.Vector3();
     camera.getWorldDirection(forward);
     forward.y=0;
