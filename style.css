@@ -53,3 +53,6 @@ body:has(#finalPanel:not([hidden])) #hud #tracking,body:has(#finalPanel:not([hid
 body:has(#bookPanel:not([hidden])) #hud,body:has(#finalPanel:not([hidden])) #hud{bottom:calc(24px + env(safe-area-inset-bottom))}
 body:has(#bookPanel:not([hidden])) #hud #instruction,body:has(#finalPanel:not([hidden])) #hud #instruction{display:none}
 #bookPanel{bottom:calc(135px + env(safe-area-inset-bottom))}
+
+/* Test 13: once initialization begins, never reveal the full-screen intro again. */
+#gate[hidden]{display:none!important}
