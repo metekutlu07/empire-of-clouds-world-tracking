@@ -9,3 +9,10 @@ html,body {width:100%;height:100%;height:100dvh;overscroll-behavior:none}
 header {align-items:flex-start;gap:8px}
 header span {text-align:right}
 @media(max-width:600px){header{font-size:9px;letter-spacing:.08em;padding:calc(env(safe-area-inset-top) + 14px) 14px 8px}header strong,header span{max-width:49%}#hud button{margin:5px}#tracking{padding:9px 12px;font-size:10px}#instruction{font-size:12px}footer{font-size:8px;padding-bottom:calc(env(safe-area-inset-bottom) + 8px)}}
+
+/* Test 03: a restrained darkened real-world layer, over the camera and XR layer. */
+#cameraTint {position:fixed;inset:0;z-index:1;background:rgba(0,0,0,.20);pointer-events:none;}
+header,footer {z-index:4}
+#hud {bottom:calc(44px + env(safe-area-inset-bottom))}
+#detail {max-width:min(360px,93vw)}
+#hud button {font-size:11px;padding:13px 17px;min-height:44px}
