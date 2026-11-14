@@ -4,19 +4,20 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <title>World Anchor Test · Empire of Clouds</title>
 <meta name="theme-color" content="#050505">
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 <!-- SLAM binary distributed separately by 8th Wall, subject to its own license. -->
 <script defer src="https://cdn.jsdelivr.net/npm/three@0.146.0/build/three.min.js"></script>
 <!-- Official 8th Wall full-window canvas support, including orientation changes. -->
 <script defer src="https://cdn.8thwall.com/web/xrextras/xrextras.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js" crossorigin="anonymous" data-preload-chunks="slam"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/three@0.146.0/examples/js/loaders/GLTFLoader.js"></script>
-<script defer src="app.js?v=9"></script>
+<!-- Module loader uses the matching Three.js version for the existing XR scene. -->
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.146.0/build/three.module.js"}}</script>
+<script defer src="app.js?v=10"></script>
 </head>
 <body>
 <canvas id="camerafeed"></canvas>
 
-<header><strong>EMPIRE OF CLOUDS</strong><span>SPATIAL MATRIX / TEST 09</span></header>
+<header><strong>EMPIRE OF CLOUDS</strong><span>SPATIAL MATRIX / TEST 10</span></header>
 <main id="gate"><div class="mark">⟐ Ⳉ ※</div><h1>THE SPATIAL MATRIX</h1><p>A miniature matrix becomes an inhabited world. Move your phone to map the room and discover the cube.</p><button id="start">INITIALIZE WORLD TRACKING</button><p id="preflight">Requires a supported mobile browser, HTTPS and camera permission.</p></main>
 <div id="hud" hidden><div class="status" id="tracking">INITIALIZING TRACKING</div><p id="instruction">Move your phone slowly left and right to map the room.</p><button id="place" disabled>RESTART EXPERIENCE</button><button id="reset" hidden>RESTART EXPERIENCE</button><button id="oracleTrigger" hidden>触碰矩阵 · TOUCH THE MATRIX</button><div id="detail">Walk and turn inside the static glyph chamber. Symbols stay fixed in space.</div></div>
 <section id="portalPrompt" role="dialog" aria-modal="false" aria-labelledby="portalTitle" hidden>
