@@ -55,6 +55,20 @@
       }
     };
   }
+  // Size the WebGL buffer for portrait mobile before the XR engine starts.
+  // The old HTML default was 300 x 150, despite full-screen CSS.
+  function prepareCanvas() {
+    const canvas = $('camerafeed');
+    const viewport = window.visualViewport;
+    const w = Math.round(viewport?.width || window.innerWidth);
+    const h = Math.round(viewport?.height || window.innerHeight);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+  }
+
   function startXR(){
     if(xrStarted) return;
     if(!window.isSecureContext){fail('HTTPS is required for camera access.');return;}
@@ -62,6 +76,7 @@
     if(!window.XR8){fail('8th Wall engine has not loaded. Check network access to jsDelivr and reload.');return;}
     if(!XR8.XrController || !XR8.Threejs){fail('8th Wall SLAM or Three.js module unavailable.');return;}
     xrStarted=true;
+    prepareCanvas();
     $('gate').hidden = true; $('gate').style.display='none'; $('hud').hidden=false;
     try {
       XR8.XrController.configure({disableWorldTracking:false});
@@ -69,6 +84,9 @@
         XR8.GlTextureRenderer.pipelineModule(),
         XR8.Threejs.pipelineModule(),
         XR8.XrController.pipelineModule(),
+        ...(window.XRExtras?.FullWindowCanvas
+          ? [XRExtras.FullWindowCanvas.pipelineModule()]
+          : []),
         {
           name:'empire-camera-status',
           onCameraStatusChange: ({status}) => {
