@@ -469,7 +469,7 @@
       if(miniCipherClock>.65){miniCipherClock=0;substituteGlyphs(miniCube?.children.find(o=>o.isMesh),3);}
     } else if(stage==='chamber'){
       wallCipherClock+=dt;
-      if(wallCipherClock>3.8){wallCipherClock=0;circulateWallBands();}
+      if(wallCipherClock>1.27){wallCipherClock=0;circulateWallBands();}
     } else if(stage==='lattice'){
       latticeCipherClock+=dt;
       if(latticeCipherClock>.45){
@@ -995,6 +995,21 @@
 
   // A restrained visual interference on the miniature's first appearance:
   // brief, rare horizontal phase shifts. Tracking coordinates are untouched.
+  // Three clipped copies of the entire introduction become horizontal
+  // corruption bands; the real button remains the only interactive button.
+  (function initGateInterference(){
+    const gate=$('gate'), original=gate?.querySelector('.gateContent');
+    if(!gate||!original)return;
+    for(let i=0;i<3;i++){
+      const band=original.cloneNode(true);
+      band.classList.add('glitchBand','glitchBand'+(i+1));
+      band.setAttribute('aria-hidden','true');
+      band.querySelectorAll('[id]').forEach(n=>n.removeAttribute('id'));
+      band.querySelectorAll('button').forEach(n=>{n.tabIndex=-1;n.disabled=true;});
+      gate.appendChild(band);
+    }
+  })();
+
   function updateOpeningGlitch(now){
     if(stage!=='mini'||!miniCube)return;
     const phase=((now-miniStart)/1000)%7.5;
@@ -1075,7 +1090,11 @@
     if(!XR8.XrController||!XR8.Threejs){fail('8th Wall SLAM or Three.js module unavailable.');return;}
     xrStarted=true;
     prepareCanvas();
-    $('gate').hidden=true;$('gate').style.display='none';$('hud').hidden=false;
+    const intro=$('gate');
+    intro.classList.add('gateLeaving');
+    document.body.classList.add('experienceStarted');
+    setTimeout(()=>{intro.hidden=true;intro.style.display='none';},560);
+    $('hud').hidden=false;
     try{
       XR8.XrController.configure({disableWorldTracking:false});
       XR8.addCameraPipelineModules([
