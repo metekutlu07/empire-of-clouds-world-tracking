@@ -185,3 +185,28 @@ header #reset{font-size:16px!important;min-height:46px!important;padding:10px 14
   5.3%,6.6%{opacity:.28;transform:translateX(3px)}
   8.0%{opacity:.78;transform:translateX(-2px)}
 }
+
+/* Test 22: a single-line Chinese byline and full-screen interference intro. */
+header .projectIdentity{flex:0 0 auto;min-width:max-content;white-space:nowrap}
+header .artistName{white-space:nowrap!important;word-break:keep-all!important;
+  overflow-wrap:normal!important;display:block;font-size:13px!important;letter-spacing:.02em}
+#gate{overflow:hidden}
+#gate::before{content:"";pointer-events:none;position:absolute;inset:0;z-index:0;
+  opacity:.16;background:repeating-linear-gradient(0deg,transparent 0 3px,#9effcf20 3px 4px)}
+#gate::after{content:"";position:absolute;inset:-20%;z-index:1;pointer-events:none;
+  opacity:0;background:linear-gradient(90deg,#ff63cb44,transparent 27%,#65ffb633,transparent 75%);
+  animation:fullPageGlitch 7.2s steps(2,end) infinite}
+#gate .mark,#gate .gateIntro,#gate #start{position:relative;z-index:2;
+  animation:pageGlitchText 7.2s steps(2,end) infinite}
+@keyframes fullPageGlitch{
+  0%,8%,11%,100%{opacity:0;transform:translateX(-120%)}
+  8.3%{opacity:.42;transform:translateX(-20%)}
+  9%{opacity:.8;transform:translateX(4%)}
+  10.5%{opacity:.12;transform:translateX(95%)}
+}
+@keyframes pageGlitchText{
+  0%,8%,11%,100%{transform:translate(0);filter:none}
+  8.3%{transform:translate(4px,-2px);filter:drop-shadow(3px 0 #ff64bd)}
+  9%{transform:translate(-3px,1px);filter:drop-shadow(-4px 0 #6cffc1)}
+  10.5%{transform:translate(2px,0);filter:none}
+}
