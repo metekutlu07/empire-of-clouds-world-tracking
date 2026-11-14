@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>World Anchor Test · Empire of Clouds</title>
+<meta name="theme-color" content="#050505">
+<link rel="stylesheet" href="style.css">
+<!-- SLAM binary distributed separately by 8th Wall, subject to its own license. -->
+<script defer src="https://cdn.jsdelivr.net/npm/three@0.146.0/build/three.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js" crossorigin="anonymous" data-preload-chunks="slam"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+<canvas id="camerafeed"></canvas>
+<header><strong>EMPIRE OF CLOUDS</strong><span>WORLD ANCHOR / TEST 01</span></header>
+<main id="gate"><div class="mark">⟐ Ⳉ ※</div><h1>THE SPATIAL MATRIX</h1><p>A genuine world-tracking experiment. Scan the room, place one glyph, then walk around it.</p><button id="start">INITIALIZE WORLD TRACKING</button><p id="preflight">Requires a supported mobile browser, HTTPS and camera permission.</p></main>
+<div id="hud" hidden><div class="status" id="tracking">INITIALIZING TRACKING</div><p id="instruction">Move your phone slowly left and right to map the room.</p><button id="place" disabled>PLACE GLYPH IN SPACE</button><button id="reset" hidden>PLACE AGAIN</button><div id="detail">The glyph should remain in one place as you walk sideways.</div></div>
+<div id="error" role="alert" hidden></div>
+<footer>METE KUTLU · CODES, COLORS AND COSMOS</footer>
+</body>
+</html>
