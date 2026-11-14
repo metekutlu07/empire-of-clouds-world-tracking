@@ -4,23 +4,23 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <title>World Anchor Test · Empire of Clouds</title>
 <meta name="theme-color" content="#050505">
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 <!-- SLAM binary distributed separately by 8th Wall, subject to its own license. -->
 <script defer src="https://cdn.jsdelivr.net/npm/three@0.146.0/build/three.min.js"></script>
 <!-- Official 8th Wall full-window canvas support, including orientation changes. -->
 <script defer src="https://cdn.8thwall.com/web/xrextras/xrextras.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js" crossorigin="anonymous" data-preload-chunks="slam"></script>
-<script defer src="app.js?v=6"></script>
+<script defer src="app.js?v=7"></script>
 </head>
 <body>
 <canvas id="camerafeed"></canvas>
 
-<header><strong>EMPIRE OF CLOUDS</strong><span>SPATIAL MATRIX / TEST 06</span></header>
-<main id="gate"><div class="mark">⟐ Ⳉ ※</div><h1>THE SPATIAL MATRIX</h1><p>A room-sized cubic lattice of glyphs. You stand inside the matrix. Scan your surroundings, then form the chamber.</p><button id="start">INITIALIZE WORLD TRACKING</button><p id="preflight">Requires a supported mobile browser, HTTPS and camera permission.</p></main>
-<div id="hud" hidden><div class="status" id="tracking">INITIALIZING TRACKING</div><p id="instruction">Move your phone slowly left and right to map the room.</p><button id="place" disabled>FORM GLYPH CHAMBER</button><button id="reset" hidden>RE-FORM CHAMBER</button><div id="detail">Walk and turn inside the static glyph chamber. Symbols stay fixed in space.</div></div>
+<header><strong>EMPIRE OF CLOUDS</strong><span>SPATIAL MATRIX / TEST 07</span></header>
+<main id="gate"><div class="mark">⟐ Ⳉ ※</div><h1>THE SPATIAL MATRIX</h1><p>A miniature matrix becomes an inhabited world. Move your phone to map the room and discover the cube.</p><button id="start">INITIALIZE WORLD TRACKING</button><p id="preflight">Requires a supported mobile browser, HTTPS and camera permission.</p></main>
+<div id="hud" hidden><div class="status" id="tracking">INITIALIZING TRACKING</div><p id="instruction">Move your phone slowly left and right to map the room.</p><button id="place" disabled>RESTART EXPERIENCE</button><button id="reset" hidden>RESTART EXPERIENCE</button><div id="detail">Walk and turn inside the static glyph chamber. Symbols stay fixed in space.</div></div>
 <section id="portalPrompt" role="dialog" aria-modal="false" aria-labelledby="portalTitle" hidden>
   <div class="portalMark">⟐</div>
-  <h2 id="portalTitle">ENTER THE MATRIX?</h2>
+  <h2 id="portalTitle">ARE YOU READY TO ENTER THE MATRIX?</h2><p id="portalNote"></p>
   <div class="portalChoices">
     <button type="button" id="portalYes">YES</button>
     <button type="button" id="portalNo">NO</button>
