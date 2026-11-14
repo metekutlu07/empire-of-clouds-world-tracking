@@ -1,13 +1,13 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
-<title>World Anchor Test · Empire of Clouds</title>
+<title>云之帝国</title>
 <meta name="theme-color" content="#050505">
 <!-- Avoid an unstyled first-paint before the stylesheet reaches mobile Safari. -->
 <style>html.boot-pending body{visibility:hidden!important}</style>
 <script>document.documentElement.classList.add('boot-pending');setTimeout(function(){document.documentElement.classList.remove('boot-pending')},3500)</script>
-<link rel="stylesheet" href="style.css?v=17" onload="document.documentElement.classList.remove('boot-pending')" onerror="document.documentElement.classList.remove('boot-pending')">
+<link rel="stylesheet" href="style.css?v=18" onload="document.documentElement.classList.remove('boot-pending')" onerror="document.documentElement.classList.remove('boot-pending')">
 <!-- SLAM binary distributed separately by 8th Wall, subject to its own license. -->
 <script defer src="https://cdn.jsdelivr.net/npm/three@0.146.0/build/three.min.js"></script>
 <!-- Official 8th Wall full-window canvas support, including orientation changes. -->
@@ -15,23 +15,23 @@
 <script defer src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js" crossorigin="anonymous" data-preload-chunks="slam"></script>
 <!-- Use classic GLTFLoader with the SAME global Three.js as 8th Wall. -->
 <script defer src="https://cdn.jsdelivr.net/npm/three@0.146.0/examples/js/loaders/GLTFLoader.js"></script>
-<script defer src="app.js?v=17"></script>
+<script defer src="app.js?v=18"></script>
 </head>
 <body>
 <canvas id="camerafeed"></canvas>
 
-<header><strong>EMPIRE OF CLOUDS</strong><button id="reset" hidden type="button">RESTART EXPERIENCE</button></header>
-<main id="gate"><div class="mark">⟐ Ⳉ ※</div><p class="gateIntro">An architecture of codes awaits.</p><button id="start">ENTER THE MATRIX</button></main>
-<div id="hud" hidden><div class="status" id="tracking">INITIALIZING TRACKING</div><p id="instruction">Move your phone slowly left and right to map the room.</p><button id="place" disabled hidden>RESTART EXPERIENCE</button><button id="oracleTrigger" hidden>触碰矩阵 · TOUCH THE MATRIX</button><div id="detail">Walk and turn inside the static glyph chamber. Symbols stay fixed in space.</div></div>
+<header><strong>云之帝国</strong><button id="reset" hidden type="button">重新开始</button></header>
+<main id="gate"><div class="mark"><span>⟐</span><span>Ⳉ</span><span>※</span></div><button id="start">开始</button></main>
+<div id="hud" hidden><div class="status" id="tracking">INITIALIZING TRACKING</div><p id="instruction">Move your phone slowly left and right to map the room.</p><button id="place" disabled hidden>重新开始</button><button id="oracleTrigger" hidden>触碰矩阵</button><div id="detail">Walk and turn inside the static glyph chamber. Symbols stay fixed in space.</div></div>
 <section id="portalPrompt" role="dialog" aria-modal="false" aria-labelledby="portalTitle" hidden>
   <div class="portalMark">⟐</div>
-  <h2 id="portalTitle">ARE YOU READY TO ENTER THE MATRIX?</h2><p id="portalNote"></p>
+  <h2 id="portalTitle">你准备好进入矩阵了吗？</h2><p id="portalNote"></p>
   <div class="portalChoices">
-    <button type="button" id="portalYes">YES</button>
-    <button type="button" id="portalNo">NO</button>
+    <button type="button" id="portalYes">是</button>
+    <button type="button" id="portalNo">否</button>
   </div>
 </section>
-<section id="bookPanel" hidden><div id="bookCount">BOOK I</div><div id="bookTitle">EASTERN WINDS</div><div id="bookHint">触碰书籍 · TAP THE BOOK</div><button id="bookAction" type="button">打开书籍 · OPEN THE BOOK</button></section><section id="finalPanel" hidden role="dialog" aria-labelledby="finalText"><div class="portalMark">⟐</div><h2 id="finalText">想要发现隐藏的真相吗？只剩最后一步。</h2><p>To discover hidden truths, only one step remains.</p><button id="finalEnter" type="button">进入 · ENTER</button></section><div id="error" role="alert" hidden></div>
+<section id="bookPanel" hidden><div id="bookCount">第一卷</div><div id="bookTitle">东方之风</div><div id="bookHint">轻触书籍以打开</div><button id="bookAction" type="button">轻触书籍以打开</button></section><section id="finalPanel" hidden role="dialog" aria-labelledby="finalText"><div class="portalMark">⟐</div><h2 id="finalText">想要发现隐藏的真相吗？只剩最后一步。</h2><button id="finalEnter" type="button">进入</button></section><div id="error" role="alert" hidden></div>
 <footer>METE KUTLU · CODES, COLORS AND COSMOS</footer>
 </body>
 </html>
