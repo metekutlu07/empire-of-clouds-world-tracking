@@ -10,6 +10,9 @@
   let bookGroup=null,bookPath=null,bookMixer=null,bookDuration=0,bookIndex=0,
       bookOpening=false,bookOpened=false,bookStart=0,bookSerial=0,bookLoader=null;
   let preloadedBook=null,preloadPromise=null;
+  // Test 20: a second, volumetric matrix between the opened threshold and Book I.
+  let lattice=null,latticeTarget=null,latticeGlow=null,latticeTimer=null;
+
   const LINES = {
     enter:'你准备好进入矩阵了吗？',
     clouds:'云会思考吗？',
@@ -295,6 +298,145 @@
   }
   function hidePrompt(){ $('portalPrompt').hidden=true; }
 
+
+  function disposeLattice(){
+    if(latticeTimer){clearTimeout(latticeTimer);latticeTimer=null;}
+    if(!lattice)return;
+    if(scene)scene.remove(lattice);
+    lattice.traverse(o=>{
+      if(o.geometry)o.geometry.dispose();
+      if(o.material && o.material!==chamberMaterial)o.material.dispose();
+    });
+    lattice=null;latticeTarget=null;latticeGlow=null;
+  }
+
+  function buildLatticeGlyphs(){
+    // One mesh, 180 glyphs, on a genuine 3D Cartesian lattice.
+    // A slight stagger creates parallax without losing the geometric logic.
+    const positions=[],uvs=[],colors=[],indices=[];
+    const stepX=.40,stepY=.43,stepZ=.40;
+    let index=0;
+    for(let z=0;z<6;z++)for(let y=0;y<5;y++)for(let x=0;x<6;x++){
+      // No glyphs directly in the middle of the viewer's face.
+      const px=(x-2.5)*stepX,py=(y-2)*stepY,pz=(z-2.5)*stepZ;
+      if(Math.abs(px)<.28 && Math.abs(py)<.26 && Math.abs(pz)<.28)continue;
+      const cell=(x*31+y*53+z*17+11)%GLYPHS.length;
+      const col=cell%ATLAS_COLS,row=Math.floor(cell/ATLAS_COLS);
+      const pad=.14;
+      const l=(col+pad)/ATLAS_COLS,r=(col+1-pad)/ATLAS_COLS;
+      const top=1-(row+pad)/ATLAS_ROWS,bottom=1-(row+1-pad)/ATLAS_ROWS;
+      const size=.13;
+      const vert=positions.length/3;
+      positions.push(
+        px-size/2,py-size/2,pz, px+size/2,py-size/2,pz,
+        px+size/2,py+size/2,pz, px-size/2,py+size/2,pz
+      );
+      uvs.push(l,bottom,r,bottom,r,top,l,top);
+      const tint=index%15===0?[1,.30,.74]:index%4===0?[.25,1,.60]:[1,1,1];
+      for(let k=0;k<4;k++)colors.push(...tint);
+      indices.push(vert,vert+1,vert+2,vert,vert+2,vert+3);
+      index++;
+    }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+    geo.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));
+    geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+    geo.setIndex(indices);
+    const mesh=new THREE.Mesh(geo,chamberMaterial);
+    mesh.renderOrder=10;
+    return mesh;
+  }
+
+  function buildLatticeLines(){
+    // Intersecting lines in all three axes, rather than another wall surface.
+    const pts=[],xRange=[-1,1],yRange=[-.86,.86],zRange=[-1,1];
+    for(let x=0;x<6;x++)for(let y=0;y<5;y++){
+      const xx=(x-2.5)*.4,yy=(y-2)*.43;
+      pts.push(xx,yy,zRange[0],xx,yy,zRange[1]);
+    }
+    for(let x=0;x<6;x++)for(let z=0;z<6;z++){
+      const xx=(x-2.5)*.4,zz=(z-2.5)*.4;
+      pts.push(xx,yRange[0],zz,xx,yRange[1],zz);
+    }
+    for(let y=0;y<5;y++)for(let z=0;z<6;z++){
+      const yy=(y-2)*.43,zz=(z-2.5)*.4;
+      pts.push(xRange[0],yy,zz,xRange[1],yy,zz);
+    }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));
+    const lines=new THREE.LineSegments(geo,new THREE.LineBasicMaterial({
+      color:0xc5ffe1,transparent:true,opacity:.17,depthWrite:false
+    }));
+    lines.renderOrder=5;
+    return lines;
+  }
+
+  function makeLatticeKey(){
+    // An enlarged constellation of three symbols near the center of view.
+    // Tapping the constellation is more robust than hitting a single character.
+    const keyGroup=new THREE.Group();
+    const keyColor=[0x86ffbf,0xffffff,0xff6fc8];
+    for(let i=0;i<3;i++){
+      const cell=[148,31,45][i]%GLYPHS.length;
+      const col=cell%ATLAS_COLS,row=Math.floor(cell/ATLAS_COLS);
+      const geo=new THREE.PlaneGeometry(.20,.20);
+      const pad=.10,l=(col+pad)/ATLAS_COLS,r=(col+1-pad)/ATLAS_COLS;
+      const t=1-(row+pad)/ATLAS_ROWS,b=1-(row+1-pad)/ATLAS_ROWS;
+      const uv=geo.attributes.uv;
+      uv.setXY(0,l,t);uv.setXY(1,r,t);uv.setXY(2,l,b);uv.setXY(3,r,b);
+      const glyph=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({
+        map:chamberTexture,color:keyColor[i],transparent:true,
+        blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide
+      }));
+      glyph.position.x=(i-1)*.23;
+      glyph.renderOrder=16;
+      keyGroup.add(glyph);
+    }
+    const hit=new THREE.Mesh(new THREE.PlaneGeometry(.94,.65),
+      new THREE.MeshBasicMaterial({
+        transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide
+      }));
+    hit.userData.isLatticeKey=true;
+    keyGroup.add(hit);
+    keyGroup.position.set(0,.06,-.80);
+    lattice.add(keyGroup);
+    latticeTarget=hit;
+    latticeGlow=keyGroup;
+  }
+
+  function enterLattice(){
+    latticeTimer=null;
+    if(stage!=='portal'||!scene||!camera||!chamber)return;
+    // Keep the chamber group in memory for its book placement, but remove
+    // the walls from the scene. The visitor now inhabits a volumetric field.
+    scene.remove(chamber);
+    disposeLattice();
+    stage='lattice';
+    lattice=new THREE.Group();
+    lattice.add(buildLatticeLines());
+    lattice.add(buildLatticeGlyphs());
+    makeLatticeKey();
+    lattice.position.copy(camera.position);
+    const forward=new THREE.Vector3();
+    camera.getWorldDirection(forward);
+    lattice.rotation.y=Math.atan2(-forward.x,-forward.z);
+    scene.add(lattice);
+    $('oracleTrigger').textContent='触碰发光的符号';
+    $('oracleTrigger').hidden=false;
+    $('instruction').textContent='触碰发光的符号';
+    setStatus('VOLUMETRIC MATRIX · TRACKING NORMAL');
+  }
+
+  function revealBookFromLattice(){
+    if(stage!=='lattice'||!chamber)return;
+    disposeLattice();
+    // The chamber remains a world anchor, but its architecture is now absent.
+    // Only the book will be visible when its model is attached.
+    for(const child of chamber.children)child.visible=false;
+    scene.add(chamber);
+    beginBooks();
+  }
+
   function disposeMini(){
     if(!miniCube)return;
     scene.remove(miniCube);
@@ -303,7 +445,7 @@
   }
   function showMini(){
     if(!sceneReady || !trackingNormal || !camera)return;
-    stopVoice();clearStageTimer();disposeMini();disposeChamber();hidePrompt();
+    stopVoice();clearStageTimer();disposeLattice();disposeMini();disposeChamber();hidePrompt();
     stage='mini';portalOpen=false;
     if(!chamberTexture)chamberTexture=makeAtlas();
     if(!chamberMaterial)chamberMaterial=new THREE.MeshBasicMaterial({
@@ -350,7 +492,7 @@
   }
   function disposeChamber(){
     if(!chamber)return;
-    disposeBooks();
+    disposeLattice();disposeBooks();
     scene.remove(chamber);
     chamber.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material&&o.material!==chamberMaterial)o.material.dispose();});
     chamber=null;glyphMesh=null;gridMesh=null;portalFrame=null;oracleTarget=null;
@@ -391,9 +533,12 @@
       targetGroup.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose();});
       oracleTarget=null;
     }
-    $('instruction').textContent='PORTAL OPEN · A book is waiting beyond the threshold.';
+    $('instruction').textContent='通道已打开';
     setStatus('PORTAL OPEN · TRACKING NORMAL');
-    beginBooks();
+    // Hold the architectural opening for exactly three seconds, then reveal
+    // the second, spatial matrix. This is cancellable via RESTART.
+    if(latticeTimer)clearTimeout(latticeTimer);
+    latticeTimer=setTimeout(enterLattice,3000);
   }
 
 
@@ -596,7 +741,7 @@
   }
   function handleWorldTap(e){
     if(!trackingNormal||!camera||!scene||!e.isPrimary)return;
-    if(stage!=='mini'&&stage!=='chamber'&&stage!=='books')return;
+    if(stage!=='mini'&&stage!=='chamber'&&stage!=='lattice'&&stage!=='books')return;
     if(e.target!==$('camerafeed'))return;
     if(!activeRaycaster)activeRaycaster=new THREE.Raycaster();
     const ndc=new THREE.Vector2(e.clientX/window.innerWidth*2-1,
@@ -609,6 +754,8 @@
       if(activeRaycaster.ray.intersectsSphere(sphere))awakenMini();
     }else if(stage==='chamber'&&oracleTarget){
       if(activeRaycaster.intersectObject(oracleTarget,false).length)awakenCloud();
+    }else if(stage==='lattice'&&latticeTarget){
+      if(activeRaycaster.intersectObject(latticeTarget,false).length)revealBookFromLattice();
     }else if(stage==='books'&&bookGroup){
       if(activeRaycaster.intersectObject(bookGroup,true).length)tapBook();
     }
@@ -617,6 +764,7 @@
   $('oracleTrigger').addEventListener('click',()=>{
     if(stage==='mini')awakenMini();
     else if(stage==='chamber')awakenCloud();
+    else if(stage==='lattice')revealBookFromLattice();
   });
   $('portalYes').addEventListener('click',()=>{
     if(stage==='ready')expandToChamber();
@@ -648,6 +796,10 @@
         if(miniCube && (stage==='mini'||stage==='ready')){
           // The GROUP is fixed in world space; only its local orientation spins.
           miniCube.rotation.y=(performance.now()-miniStart)*0.00017;
+        }
+        if(latticeGlow && stage==='lattice'){
+          const pulse=1+.075*Math.sin(performance.now()*.0025);
+          latticeGlow.scale.setScalar(pulse);
         }
         if(oracleTarget?.userData.ring){
           oracleTarget.userData.ring.material.opacity=.22+.16*Math.sin(performance.now()*.003);
