@@ -7,7 +7,7 @@
 <!-- Avoid an unstyled first-paint before the stylesheet reaches mobile Safari. -->
 <style>html.boot-pending body{visibility:hidden!important}</style>
 <script>document.documentElement.classList.add('boot-pending');setTimeout(function(){document.documentElement.classList.remove('boot-pending')},3500)</script>
-<link rel="stylesheet" href="style.css?v=22" onload="document.documentElement.classList.remove('boot-pending')" onerror="document.documentElement.classList.remove('boot-pending')">
+<link rel="stylesheet" href="style.css?v=23" onload="document.documentElement.classList.remove('boot-pending')" onerror="document.documentElement.classList.remove('boot-pending')">
 <!-- SLAM binary distributed separately by 8th Wall, subject to its own license. -->
 <script defer src="https://cdn.jsdelivr.net/npm/three@0.146.0/build/three.min.js"></script>
 <!-- Official 8th Wall full-window canvas support, including orientation changes. -->
@@ -15,13 +15,13 @@
 <script defer src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js" crossorigin="anonymous" data-preload-chunks="slam"></script>
 <!-- Use classic GLTFLoader with the SAME global Three.js as 8th Wall. -->
 <script defer src="https://cdn.jsdelivr.net/npm/three@0.146.0/examples/js/loaders/GLTFLoader.js"></script>
-<script defer src="app.js?v=22"></script>
+<script defer src="app.js?v=23"></script>
 </head>
 <body>
 <canvas id="camerafeed"></canvas>
 
 <header><div class="projectIdentity"><strong>云之帝国</strong><span class="artistName">梅特·库图鲁</span></div><button id="reset" hidden type="button">重新开始</button></header>
-<main id="gate"><div class="mark"><span>⟐</span><span>Ⳉ</span><span>※</span></div><p class="gateIntro">代码构成的建筑，正等待着你。</p><button id="start">进入矩阵</button></main>
+<main id="gate"><div class="gateContent"><div class="mark"><span>⟐</span><span>Ⳉ</span><span>※</span></div><p class="gateIntro">一个由代码构成的世界，正等待着你。</p><button id="start">进入矩阵</button></div></main>
 <div id="hud" hidden><div class="status" id="tracking">INITIALIZING TRACKING</div><p id="instruction">Move your phone slowly left and right to map the room.</p><button id="place" disabled hidden>重新开始</button><button id="oracleTrigger" hidden>触碰矩阵</button><div id="detail">Walk and turn inside the static glyph chamber. Symbols stay fixed in space.</div></div>
 <section id="portalPrompt" role="dialog" aria-modal="false" aria-labelledby="portalTitle" hidden>
   <div class="portalMark">⟐</div>
