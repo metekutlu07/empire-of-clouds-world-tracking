@@ -264,3 +264,6 @@ header #reset,#hud #oracleTrigger,#bookAction,#finalEnter,
  0%,13%,17%,100%{opacity:0;transform:translateX(0);clip-path:inset(0 0 100% 0)}
  13.2%,14.6%{opacity:.82;transform:translateX(-13px);clip-path:inset(18% 0 77% 0)}
  15%,16.4%{opacity:.64;transform:translateX(24px);clip-path:inset(70% 0 20% 0)}}
+
+/* Ghost slices use the same button geometry as the real opening. */
+#gate .glitchBand button{width:136px!important;min-width:136px!important;max-width:136px!important;height:45px!important;min-height:45px!important;max-height:45px!important;padding:0 15px!important;display:inline-flex!important;align-items:center;justify-content:center;font-size:16px!important;letter-spacing:.06em!important;white-space:nowrap;box-sizing:border-box!important;background:#f1f1f1;color:#050505;border:1px solid white}
