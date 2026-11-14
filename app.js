@@ -6,6 +6,9 @@
   let portalOpen = false, glyphMesh = null, gridMesh = null, portalFrame = null;
   let miniCube = null, stage = 'tracking', miniStart = 0, oracleTarget = null;
   let activeRaycaster = null, voiceToken=0;
+  const BOOKS=['Eastern Winds','Cosmic Cryptography','Pigment Turbulence','The Crystal Matrix','Synthetic Minds'];
+  let bookGroup=null,bookPath=null,bookMixer=null,bookDuration=0,bookIndex=0,
+      bookOpening=false,bookOpened=false,bookStart=0,bookSerial=0,bookLoader=null;
   const LINES = {
     enter:'你准备好进入矩阵了吗？',
     clouds:'云会思考吗？',
@@ -312,7 +315,7 @@
     forward.y=0;
     if(forward.lengthSq()<.01)forward.set(0,0,-1);
     forward.normalize();
-    miniCube.position.copy(camera.position).addScaledVector(forward,.55);
+    miniCube.position.copy(camera.position).addScaledVector(forward,.48);
     miniCube.position.y+=.01;
     scene.add(miniCube);
     miniStart=performance.now();
@@ -338,6 +341,7 @@
   }
   function disposeChamber(){
     if(!chamber)return;
+    disposeBooks();
     scene.remove(chamber);
     chamber.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material&&o.material!==chamberMaterial)o.material.dispose();});
     chamber=null;glyphMesh=null;gridMesh=null;portalFrame=null;oracleTarget=null;
@@ -371,10 +375,111 @@
     rebuildChamberContent();
     stage='portal';hidePrompt();
     $('oracleTrigger').hidden=true;
-    $('instruction').textContent='PORTAL OPEN · A passage has appeared in the front wall.';
+    $('instruction').textContent='PORTAL OPEN · The five books await.';
     setStatus('PORTAL OPEN · TRACKING NORMAL');
+    beginBooks();
   }
 
+
+
+  function disposeBooks(){
+    bookSerial++;
+    $('bookPanel').hidden=true;$('finalPanel').hidden=true;
+    if(bookGroup&&chamber)chamber.remove(bookGroup);
+    if(bookPath&&chamber)chamber.remove(bookPath);
+    if(bookPath)bookPath.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose();});
+    bookGroup=null;bookPath=null;bookMixer=null;bookOpening=false;bookOpened=false;
+  }
+  function makeBookPath(){
+    bookPath=new THREE.Group();
+    const vertices=[];
+    for(let i=0;i<16;i++){
+      const z=-1.28-i*.10,y=-.93+i*.017;
+      vertices.push(-.25,y,z,.25,y,z);
+    }
+    const g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+    bookPath.add(new THREE.LineSegments(g,new THREE.LineBasicMaterial({
+      color:0x9affcb,transparent:true,opacity:.42,depthWrite:false})));
+    chamber.add(bookPath);
+  }
+  function beginBooks(){
+    disposeBooks();stage='books';bookIndex=0;
+    $('oracleTrigger').hidden=true;
+    makeBookPath();showBook(0);
+  }
+  function updateBookPanel(opened){
+    $('bookPanel').hidden=false;
+    $('bookCount').textContent='BOOK '+['I','II','III','IV','V'][bookIndex]+' / V';
+    $('bookTitle').textContent=BOOKS[bookIndex].toUpperCase();
+    $('bookHint').textContent=opened?'书已打开 · BOOK OPEN':'触碰书籍 · TAP THE BOOK TO OPEN';
+    $('bookAction').textContent=opened?(bookIndex===4?'继续 · CONTINUE':'下一卷 · NEXT BOOK'):
+      '打开书籍 · OPEN THE BOOK';
+  }
+  function mountBook(gltf,serial){
+    if(serial!==bookSerial||stage!=='books'||!chamber)return;
+    const model=gltf.scene;model.updateMatrixWorld(true);
+    const bounds=new THREE.Box3().setFromObject(model);
+    const center=bounds.getCenter(new THREE.Vector3());
+    const size=bounds.getSize(new THREE.Vector3());
+    const centered=new THREE.Group();
+    model.position.sub(center);centered.add(model);
+    centered.scale.setScalar(.55/Math.max(size.x,size.y,size.z,.001));
+    bookGroup=new THREE.Group();bookGroup.add(centered);
+    bookGroup.rotation.y=Math.PI;
+    bookGroup.position.set(0,.12,-DEPTH/2-.58);
+    chamber.add(bookGroup);
+    if(gltf.animations&&gltf.animations.length){
+      const clip=gltf.animations[0];
+      bookMixer=new THREE.AnimationMixer(model);
+      bookMixer.clipAction(clip).play();
+      bookDuration=clip.duration;bookMixer.setTime(0);
+    }else{bookMixer=null;bookDuration=0;}
+    updateBookPanel(false);
+    $('bookAction').disabled=false;
+    $('instruction').textContent='BOOK '+(bookIndex+1)+' · TOUCH THE BOOK';
+  }
+  function showBook(index){
+    if(stage!=='books'||!chamber)return;
+    const serial=++bookSerial;
+    if(bookGroup)chamber.remove(bookGroup);
+    bookGroup=null;bookMixer=null;bookIndex=index;bookOpening=false;bookOpened=false;
+    updateBookPanel(false);
+    $('bookHint').textContent='正在加载 · LOADING BOOK…';
+    $('bookAction').disabled=true;
+    if(!THREE.GLTFLoader){$('bookHint').textContent='3D loader unavailable. Reload page.';return;}
+    if(!bookLoader)bookLoader=new THREE.GLTFLoader();
+    const file='book-'+(index+1)+'.glb';
+    bookLoader.load('https://cdn.jsdelivr.net/gh/metekutlu07/empire-of-clouds@main/3d/'+file,
+      gltf=>mountBook(gltf,serial),undefined,err=>{
+        if(serial!==bookSerial)return;
+        console.warn('CDN unavailable, trying original',err);
+        bookLoader.load('https://empireofclouds.com/3d/'+file,
+          gltf=>mountBook(gltf,serial),undefined,e=>{
+            if(serial===bookSerial){console.error(e);$('bookHint').textContent='Model unavailable. Check connection.';}
+          });
+      });
+  }
+  function finishBookOpening(){
+    bookOpening=false;updateBookPanel(true);$('bookAction').disabled=false;
+  }
+  function tapBook(){
+    if(stage!=='books'||!bookGroup||bookOpening)return;
+    if(!bookOpened){
+      bookOpened=true;bookOpening=true;bookStart=performance.now();
+      $('bookHint').textContent='书正在打开 · BOOK OPENING…';
+      $('bookAction').disabled=true;
+      if(!bookMixer||!bookDuration)finishBookOpening();
+    }else if(bookIndex<4){
+      showBook(bookIndex+1);
+    }else{
+      stage='final';$('bookPanel').hidden=true;$('finalPanel').hidden=false;
+      $('instruction').textContent='THE FINAL THRESHOLD';
+      speak('想要发现隐藏的真相吗？只剩最后一步。');
+    }
+  }
+  $('bookAction').addEventListener('click',tapBook);
+  $('finalEnter').addEventListener('click',()=>{window.location.href='https://dreampixels.cloud/';});
 
   function awakenMini(){
     if(stage!=='mini')return;
@@ -421,7 +526,7 @@
   }
   function handleWorldTap(e){
     if(!trackingNormal||!camera||!scene||!e.isPrimary)return;
-    if(stage!=='mini'&&stage!=='chamber')return;
+    if(stage!=='mini'&&stage!=='chamber'&&stage!=='books')return;
     if(e.target!==$('camerafeed'))return;
     if(!activeRaycaster)activeRaycaster=new THREE.Raycaster();
     const ndc=new THREE.Vector2(e.clientX/window.innerWidth*2-1,
@@ -434,6 +539,8 @@
       if(activeRaycaster.ray.intersectsSphere(sphere))awakenMini();
     }else if(stage==='chamber'&&oracleTarget){
       if(activeRaycaster.intersectObject(oracleTarget,false).length)awakenCloud();
+    }else if(stage==='books'&&bookGroup){
+      if(activeRaycaster.intersectObject(bookGroup,true).length)tapBook();
     }
   }
   $('camerafeed').addEventListener('pointerup',handleWorldTap);
@@ -473,6 +580,11 @@
         if(oracleTarget?.userData.ring){
           oracleTarget.userData.ring.material.opacity=.22+.16*Math.sin(performance.now()*.003);
           oracleTarget.userData.ring.scale.setScalar(1+.075*Math.sin(performance.now()*.003));
+        }
+        if(bookOpening&&bookMixer&&bookDuration){
+          const t=Math.min(1,(performance.now()-bookStart)/3200);
+          bookMixer.setTime(bookDuration*t*t*(3-2*t));
+          if(t>=1)finishBookOpening();
         }
         const reality=processCpuResult?.reality;
         if(!reality) return;
