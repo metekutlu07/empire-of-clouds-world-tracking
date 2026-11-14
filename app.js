@@ -312,7 +312,7 @@
     forward.y=0;
     if(forward.lengthSq()<.01)forward.set(0,0,-1);
     forward.normalize();
-    miniCube.position.copy(camera.position).addScaledVector(forward,.76);
+    miniCube.position.copy(camera.position).addScaledVector(forward,.55);
     miniCube.position.y+=.01;
     scene.add(miniCube);
     miniStart=performance.now();
