@@ -416,35 +416,30 @@
   function mountBook(gltf,serial){
     if(serial!==bookSerial||stage!=='books'||!chamber)return;
     const model=gltf.scene;
-    // The original glTF covers are very dark PBR textures. Preserve their
-    // real image maps, but render without the absent HDR environment and with
-    // a moderate gamma lift so dark colors remain visible on a dim camera.
+    // Three.js renders opaque objects BEFORE transparent objects. The camera
+    // shade is transparent, so opaque book materials were darkened by the 70%
+    // camera plane even though its renderOrder was -100.
+    // Render opaque-looking textured book surfaces in the transparent pass
+    // AFTER the camera shade and BEFORE the AR interface, without changing
+    // texture colors. This is the same basic textured look as the website.
     model.traverse(o=>{
       if(!o.isMesh)return;
-      const fix=(old)=>{
+      const convert=old=>{
         const texture=old.map||old.emissiveMap||null;
         if(texture){
           texture.colorSpace=THREE.SRGBColorSpace||texture.colorSpace;
           texture.needsUpdate=true;
         }
-        const material=new THREE.MeshBasicMaterial({
+        return new THREE.MeshBasicMaterial({
           map:texture,color:0xffffff,side:THREE.DoubleSide,
-          transparent:old.transparent||old.alphaTest>0,
-          alphaTest:old.alphaTest||0,
-          opacity:old.opacity===undefined?1:old.opacity,
+          transparent:true,depthWrite:true,depthTest:true,
+          alphaTest:old.alphaTest||0,opacity:old.opacity===undefined?1:old.opacity,
           toneMapped:false
         });
-        // Lift shadow tones without replacing the original artwork.
-        material.onBeforeCompile=(shader)=>{
-          shader.fragmentShader=shader.fragmentShader.replace(
-            '#include <map_fragment>',
-            '#include <map_fragment>\n diffuseColor.rgb = min(vec3(1.0), pow(max(diffuseColor.rgb, vec3(0.0)), vec3(0.48)) * 1.32);'
-          );
-        };
-        material.customProgramCacheKey=()=> 'book-color-lift-v14';
-        return material;
       };
-      o.material=Array.isArray(o.material)?o.material.map(fix):fix(o.material);
+      o.material=Array.isArray(o.material)?o.material.map(convert):convert(o.material);
+      // Camera shade: -100; glyphs: 10. Book surfaces: 20.
+      o.renderOrder=20;
     });
     // Start animation before computing bounds. Root and cover transforms are
     // animated, so the book's rest geometry must not be permanently recentered.
