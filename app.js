@@ -57,6 +57,7 @@
   const setStatus = (message) => {
     $('tracking').textContent = message;
     $('tracking').classList.toggle('ready', trackingNormal);
+    $('tracking').classList.toggle('issue',/LIMITED|FAILED|ERROR|INITIALIZING|MAPPING|LOADING/i.test(message));
   };
   const fail = (message) => {
     $('error').hidden = false; $('error').textContent = message; console.error(message);
@@ -322,7 +323,7 @@
     miniStart=performance.now();
     $('place').hidden=true;$('reset').hidden=false;
     $('instruction').textContent='触碰矩阵 · TOUCH THE MATRIX';
-    $('detail').textContent='Tap the floating cube to awaken the voice.';
+    $('detail').textContent='';
     $('oracleTrigger').hidden=false;
     $('oracleTrigger').textContent='触碰矩阵 · TOUCH THE MATRIX';
     setStatus('MINIATURE MATRIX · TRACKING NORMAL');
@@ -336,7 +337,7 @@
     stage='chamber';hidePrompt();
     installOracleTarget();
     $('instruction').textContent='触碰发光的符号 · TOUCH THE GLOWING SYMBOLS';
-    $('detail').textContent='Explore the chamber. A glowing symbol cluster awaits.';
+    $('detail').textContent='';
     $('oracleTrigger').textContent='唤醒云 · AWAKEN THE CLOUD';
     setStatus('INSIDE THE MATRIX · TRACKING NORMAL');
   }
