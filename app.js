@@ -390,17 +390,30 @@
     if(bookPath)bookPath.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose();});
     bookGroup=null;bookPath=null;bookMixer=null;bookOpening=false;bookOpened=false;
   }
+
   function makeBookPath(){
+    // A short sideways curl of *glyphs*, not a corridor extending into the room.
+    // Path occupies under 85 cm and requires no physical walking.
     bookPath=new THREE.Group();
-    const vertices=[];
-    for(let i=0;i<16;i++){
-      const z=-1.28-i*.10,y=-.93+i*.017;
-      vertices.push(-.25,y,z,.25,y,z);
+    const mat=new THREE.MeshBasicMaterial({
+      map:chamberTexture,color:0x9dffca,transparent:true,opacity:.9,
+      side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending
+    });
+    for(let i=0;i<12;i++){
+      const t=i/11;
+      const geom=new THREE.PlaneGeometry(.12+t*.035,.12+t*.035);
+      const id=(i*23+11)%GLYPHS.length;
+      const col=id%ATLAS_COLS,row=Math.floor(id/ATLAS_COLS);
+      const l=(col+.11)/ATLAS_COLS,r=(col+.89)/ATLAS_COLS;
+      const bot=1-(row+.89)/ATLAS_ROWS,top=1-(row+.11)/ATLAS_ROWS;
+      const uv=geom.attributes.uv;
+      uv.setXY(0,l,top);uv.setXY(1,r,top);uv.setXY(2,l,bot);uv.setXY(3,r,bot);
+      const symbol=new THREE.Mesh(geom,mat);
+      symbol.position.set(-.35+.78*t, -.60+.34*t, -1.02-.16*Math.sin(t*Math.PI));
+      symbol.rotation.x=-.36;
+      symbol.renderOrder=12;
+      bookPath.add(symbol);
     }
-    const g=new THREE.BufferGeometry();
-    g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
-    bookPath.add(new THREE.LineSegments(g,new THREE.LineBasicMaterial({
-      color:0x9affcb,transparent:true,opacity:.42,depthWrite:false})));
     chamber.add(bookPath);
   }
   function beginBooks(){
@@ -416,30 +429,48 @@
     $('bookAction').textContent=opened?(bookIndex===4?'继续 · CONTINUE':'下一卷 · NEXT BOOK'):
       '打开书籍 · OPEN THE BOOK';
   }
+
   function mountBook(gltf,serial){
     if(serial!==bookSerial||stage!=='books'||!chamber)return;
-    const model=gltf.scene;model.updateMatrixWorld(true);
-    const bounds=new THREE.Box3().setFromObject(model);
-    const center=bounds.getCenter(new THREE.Vector3());
-    const size=bounds.getSize(new THREE.Vector3());
-    const centered=new THREE.Group();
-    model.position.sub(center);centered.add(model);
-    centered.scale.setScalar(.55/Math.max(size.x,size.y,size.z,.001));
-    bookGroup=new THREE.Group();bookGroup.add(centered);
-    bookGroup.rotation.y=Math.PI;
-    bookGroup.position.set(0,.12,-DEPTH/2-.58);
-    chamber.add(bookGroup);
-    if(gltf.animations&&gltf.animations.length){
+    const model=gltf.scene;
+    // Start animation before computing bounds. Root and cover transforms are
+    // animated, so the book's rest geometry must not be permanently recentered.
+    if(gltf.animations?.length){
       const clip=gltf.animations[0];
       bookMixer=new THREE.AnimationMixer(model);
       bookMixer.clipAction(clip).play();
       bookDuration=clip.duration;bookMixer.setTime(0);
     }else{bookMixer=null;bookDuration=0;}
+    model.updateMatrixWorld(true);
+    const bounds=new THREE.Box3().setFromObject(model);
+    const center=bounds.getCenter(new THREE.Vector3());
+    const extent=bounds.getSize(new THREE.Vector3());
+    // Inspection of the actual uploaded files: book-1 closed bounding box
+    // ~0.233 × 0.272 × 0.175 model units, not already world-size metres.
+    // Fit ~62 cm visually, with the native orientation of the GLB retained.
+    const fit=.62/Math.max(extent.x,extent.y,extent.z,.001);
+    bookGroup=new THREE.Group();
+    const normalized=new THREE.Group();
+    normalized.scale.setScalar(fit);
+    normalized.position.copy(center).multiplyScalar(-fit);
+    normalized.add(model);
+    bookGroup.add(normalized);
+    // In front of the portal, on the VISITOR'S side, rather than 58 cm behind it.
+    // Following the short glyph curl toward the right; no walking required.
+    bookGroup.position.set(.34,.16,-.94);
+    chamber.add(bookGroup);
     updateBookPanel(false);
     $('bookAction').disabled=false;
-    $('instruction').textContent='BOOK '+(bookIndex+1)+' · TOUCH THE BOOK';
+    $('instruction').textContent='BOOK '+(bookIndex+1)+' · LOOK TOWARD THE PORTAL';
+    $('bookHint').textContent='触碰书籍 · TAP THE FLOATING BOOK TO OPEN';
   }
-  function showBook(index){
+  async function getBookLoader(){
+    if(bookLoader)return bookLoader;
+    const mod=await import('https://cdn.jsdelivr.net/npm/three@0.146.0/examples/jsm/loaders/GLTFLoader.js');
+    if(!bookLoader)bookLoader=new mod.GLTFLoader();
+    return bookLoader;
+  }
+  async function showBook(index){
     if(stage!=='books'||!chamber)return;
     const serial=++bookSerial;
     if(bookGroup)chamber.remove(bookGroup);
@@ -447,18 +478,21 @@
     updateBookPanel(false);
     $('bookHint').textContent='正在加载 · LOADING BOOK…';
     $('bookAction').disabled=true;
-    if(!THREE.GLTFLoader){$('bookHint').textContent='3D loader unavailable. Reload page.';return;}
-    if(!bookLoader)bookLoader=new THREE.GLTFLoader();
-    const file='book-'+(index+1)+'.glb';
-    bookLoader.load('https://cdn.jsdelivr.net/gh/metekutlu07/empire-of-clouds@main/3d/'+file,
-      gltf=>mountBook(gltf,serial),undefined,err=>{
-        if(serial!==bookSerial)return;
-        console.warn('CDN unavailable, trying original',err);
-        bookLoader.load('https://empireofclouds.com/3d/'+file,
-          gltf=>mountBook(gltf,serial),undefined,e=>{
-            if(serial===bookSerial){console.error(e);$('bookHint').textContent='Model unavailable. Check connection.';}
-          });
-      });
+    try{
+      const loader=await getBookLoader();
+      if(serial!==bookSerial||stage!=='books')return;
+      // Original models hosted at the author's official site.
+      const source='https://empireofclouds.com/3d/book-'+(index+1)+'.glb';
+      const gltf=await loader.loadAsync(source);
+      mountBook(gltf,serial);
+    }catch(err){
+      if(serial!==bookSerial)return;
+      console.error('Book loading failed',err);
+      $('bookHint').textContent='Could not load 3D book. Please check connection.';
+      $('bookAction').disabled=true;
+      // Visible diagnostic instead of silently leaving the visitor without a book.
+      $('instruction').textContent='BOOK '+(index+1)+' COULD NOT LOAD';
+    }
   }
   function finishBookOpening(){
     bookOpening=false;updateBookPanel(true);$('bookAction').disabled=false;
