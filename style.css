@@ -46,3 +46,10 @@ header,footer {z-index:4}
 #portalPrompt h2{font-size:clamp(16px,4.8vw,24px);letter-spacing:.06em;line-height:1.6}
 
 #bookPanel[hidden],#finalPanel[hidden]{display:none!important}#bookPanel{position:fixed;z-index:7;left:50%;bottom:calc(125px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(92vw,350px);text-align:center;pointer-events:none;text-shadow:0 0 12px #000}#bookCount{font-size:10px;letter-spacing:.2em;color:#aaffd5;margin-bottom:7px}#bookTitle{font-size:17px;letter-spacing:.1em}#bookHint{font-size:10px;color:#caffdf;margin:9px 0}#bookAction{pointer-events:auto;background:#08120ee8;color:#dbffea;border:1px solid #95ffc7;font-size:11px;padding:10px 14px;min-height:43px}#finalPanel{position:fixed;z-index:8;left:50%;top:45%;transform:translate(-50%,-50%);width:min(88vw,350px);padding:25px 18px;background:#060a0bed;border:1px solid #9affca;text-align:center}#finalPanel h2{font-size:21px;font-weight:400;line-height:1.55}#finalPanel p{margin:12px auto 21px}
+
+/* TEST 12: one artifact and a clear interface without HUD collisions. */
+body:has(#bookPanel:not([hidden])) #hud #tracking,body:has(#bookPanel:not([hidden])) #hud #detail,
+body:has(#finalPanel:not([hidden])) #hud #tracking,body:has(#finalPanel:not([hidden])) #hud #detail{display:none}
+body:has(#bookPanel:not([hidden])) #hud,body:has(#finalPanel:not([hidden])) #hud{bottom:calc(24px + env(safe-area-inset-bottom))}
+body:has(#bookPanel:not([hidden])) #hud #instruction,body:has(#finalPanel:not([hidden])) #hud #instruction{display:none}
+#bookPanel{bottom:calc(135px + env(safe-area-inset-bottom))}
