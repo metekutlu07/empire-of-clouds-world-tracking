@@ -314,8 +314,8 @@
 
   // Test 21: triple horizontal samples in both X and Z, with 70% of the
   // previous cell spacing. One indexed mesh keeps the mobile draw count low.
-  const LATTICE_X=18, LATTICE_Y=5, LATTICE_Z=18;
-  const LATTICE_STEP_X=.40*.70, LATTICE_STEP_Y=.43*.70, LATTICE_STEP_Z=.40*.70;
+  const LATTICE_X=18, LATTICE_Y=18, LATTICE_Z=18;
+  const LATTICE_STEP_X=.40*.70, LATTICE_STEP_Y=.16, LATTICE_STEP_Z=.40*.70;
 
   // Each glyph fades independently. No per-glyph meshes or timers: a single
   // dynamic vertex-color buffer is refreshed at a modest rate on mobile.
@@ -360,6 +360,124 @@
     }
   }
 
+
+  // Scene-wide transitions are separate from each glyph's existing pulse.
+  const sceneTransitions=[];
+  function setGroupAlpha(group,alpha){
+    group.userData.sceneAlpha=alpha;
+    group.traverse(o=>{
+      if(!o.material)return;
+      const materials=Array.isArray(o.material)?o.material:[o.material];
+      for(const m of materials){
+        if(m.userData.sceneBaseOpacity===undefined)m.userData.sceneBaseOpacity=m.opacity;
+        m.transparent=true;
+        m.opacity=m.userData.sceneBaseOpacity*alpha;
+        m.needsUpdate=true;
+      }
+    });
+  }
+  function transitionGroup(group,from,to,duration,onDone,scaleFrom,scaleTo){
+    if(!group)return;
+    // All meshes in a scene get their own materials, so the shared glyph
+    // atlas material used by another stage cannot be dimmed accidentally.
+    group.traverse(o=>{
+      if(!o.material||o.userData.sceneMaterialCloned)return;
+      o.material=Array.isArray(o.material)?o.material.map(m=>m.clone()):o.material.clone();
+      o.userData.sceneMaterialCloned=true;
+    });
+    sceneTransitions.push({group,from,to,duration,onDone,elapsed:0,
+      scaleFrom:scaleFrom??1,scaleTo:scaleTo??1,baseScale:group.scale.clone()});
+    setGroupAlpha(group,from);
+    group.scale.copy(group.scale.clone().multiplyScalar(scaleFrom??1));
+  }
+  let lastSceneNow=performance.now();
+  function updateSceneTransitions(now){
+    const dt=Math.min(.08,Math.max(0,(now-lastSceneNow)/1000));lastSceneNow=now;
+    for(let i=sceneTransitions.length-1;i>=0;i--){
+      const tr=sceneTransitions[i];
+      tr.elapsed+=dt;
+      const t=Math.min(1,tr.elapsed/tr.duration);
+      const ease=t*t*(3-2*t);
+      setGroupAlpha(tr.group,tr.from+(tr.to-tr.from)*ease);
+      tr.group.scale.copy(tr.baseScale).multiplyScalar(tr.scaleFrom+(tr.scaleTo-tr.scaleFrom)*ease);
+      if(t>=1){
+        sceneTransitions.splice(i,1);
+        if(tr.onDone)tr.onDone();
+      }
+    }
+    updateCipherMovement(dt);
+  }
+  function glyphCoordsFromIndex(glyphIndex){
+    const cell=glyphIndex%GLYPHS.length;
+    const col=cell%ATLAS_COLS,row=Math.floor(cell/ATLAS_COLS);
+    const pad=.12;
+    return [(col+pad)/ATLAS_COLS,(col+1-pad)/ATLAS_COLS,
+      1-(row+pad)/ATLAS_ROWS,1-(row+1-pad)/ATLAS_ROWS];
+  }
+  function substituteGlyphs(mesh,number){
+    const uv=mesh?.geometry?.getAttribute('uv');
+    if(!uv)return;
+    const n=Math.floor(uv.count/4);
+    for(let i=0;i<number;i++){
+      const g=Math.floor(Math.random()*n),[l,r,t,b]=glyphCoordsFromIndex(Math.random()*GLYPHS.length|0);
+      const p=g*4;
+      uv.setXY(p,l,b);uv.setXY(p+1,r,b);
+      uv.setXY(p+2,r,t);uv.setXY(p+3,l,t);
+    }
+    uv.needsUpdate=true;
+  }
+  // Three selected horizontal belts circulate across the four wall faces,
+  // crossing corners in discrete one-cell steps while the underlying grid stays fixed.
+  const cipherBelts=[2,7,11];
+  let miniCipherClock=0,latticeCipherClock=0,wallCipherClock=0;
+  function circulateWallBands(){
+    if(!glyphMesh||portalOpen)return;
+    const uv=glyphMesh.geometry.getAttribute('uv');
+    const pos=glyphMesh.geometry.getAttribute('position');
+    const rows=[[],[],[]];
+    const num=Math.floor(pos.count/4);
+    for(let i=0;i<num;i++){
+      const p=i*4;
+      let x=0,y=0,z=0;
+      for(let q=0;q<4;q++){x+=pos.getX(p+q)/4;y+=pos.getY(p+q)/4;z+=pos.getZ(p+q)/4;}
+      const row=Math.floor((y/HEIGHT+.5)*ROWS);
+      const belt=cipherBelts.indexOf(row);
+      if(belt<0)continue;
+      // Ignore ceiling glyphs and map every wall to a continuous ring.
+      let order=-1;
+      if(Math.abs(z+DEPTH/2)<.005)order=(x/WIDTH+.5)*COLS;
+      else if(Math.abs(x-WIDTH/2)<.005)order=COLS+(z/DEPTH+.5)*COLS;
+      else if(Math.abs(z-DEPTH/2)<.005)order=2*COLS+(1-(x/WIDTH+.5))*COLS;
+      else if(Math.abs(x+WIDTH/2)<.005)order=3*COLS+(1-(z/DEPTH+.5))*COLS;
+      if(order>=0)rows[belt].push({p,order});
+    }
+    for(let b=0;b<rows.length;b++){
+      const cells=rows[b].sort((a,b)=>a.order-b.order);
+      if(cells.length<2)continue;
+      const saved=cells.map(({p})=>Array.from({length:4},(_,q)=>[uv.getX(p+q),uv.getY(p+q)]));
+      const dir=b%2?1:-1;
+      cells.forEach(({p},i)=>{
+        const source=saved[(i-dir+cells.length)%cells.length];
+        for(let q=0;q<4;q++)uv.setXY(p+q,...source[q]);
+      });
+    }
+    uv.needsUpdate=true;
+  }
+  function updateCipherMovement(dt){
+    if(stage==='mini'||stage==='ready'){
+      miniCipherClock+=dt;
+      if(miniCipherClock>.65){miniCipherClock=0;substituteGlyphs(miniCube?.children.find(o=>o.isMesh),3);}
+    } else if(stage==='chamber'){
+      wallCipherClock+=dt;
+      if(wallCipherClock>3.8){wallCipherClock=0;circulateWallBands();}
+    } else if(stage==='lattice'){
+      latticeCipherClock+=dt;
+      if(latticeCipherClock>.45){
+        latticeCipherClock=0;
+        substituteGlyphs(lattice?.children.find(o=>o.isMesh&&o.userData.fadeData),14);
+      }
+    }
+  }
   function buildLatticeGlyphs(){
     const positions=[],uvs=[],colors=[],indices=[];
     let index=0;
@@ -463,9 +581,13 @@
     if(stage!=='portal'||!scene||!camera||!chamber)return;
     // Keep the chamber group in memory for its book placement, but remove
     // the walls from the scene. The visitor now inhabits a volumetric field.
-    scene.remove(chamber);
+    stage='latticeTransition';$('oracleTrigger').hidden=true;
+    transitionGroup(chamber,chamber.userData.sceneAlpha??1,0,1.0,()=>{
+      scene.remove(chamber);
+      stage='lattice';
+      $('oracleTrigger').hidden=false;
+    });
     disposeLattice();
-    stage='lattice';
     lattice=new THREE.Group();
     lattice.add(buildLatticeLines());
     lattice.add(buildLatticeGlyphs());
@@ -475,6 +597,7 @@
     camera.getWorldDirection(forward);
     lattice.rotation.y=Math.atan2(-forward.x,-forward.z);
     scene.add(lattice);
+    transitionGroup(lattice,0,1,1.85,null,.32,1);
     $('oracleTrigger').textContent='触碰发光的符号';
     $('oracleTrigger').hidden=false;
     $('instruction').textContent='触碰发光的符号';
@@ -483,12 +606,13 @@
 
   function revealBookFromLattice(){
     if(stage!=='lattice'||!chamber)return;
-    disposeLattice();
-    // The chamber remains a world anchor, but its architecture is now absent.
-    // Only the book will be visible when its model is attached.
-    for(const child of chamber.children)child.visible=false;
-    scene.add(chamber);
-    beginBooks();
+    stage='bookTransition';$('oracleTrigger').hidden=true;
+    transitionGroup(lattice,lattice.userData.sceneAlpha??1,0,1.15,()=>{
+      disposeLattice();
+      for(const child of chamber.children)child.visible=false;
+      scene.add(chamber);
+      beginBooks();
+    });
   }
 
   function disposeMini(){
@@ -523,6 +647,7 @@
     miniCube.position.copy(camera.position).addScaledVector(forward,.48);
     miniCube.position.y+=.01;
     scene.add(miniCube);
+    transitionGroup(miniCube,0,1,1.1);
     miniStart=performance.now();
     $('place').hidden=true;$('reset').hidden=false;
     $('instruction').textContent='触碰矩阵';
@@ -533,16 +658,20 @@
   }
   function expandToChamber(){
     if(!camera||!trackingNormal)return;
-    stopVoice();clearStageTimer();hidePrompt();disposeMini();
-    // The tiny artifact is replaced by a full-size chamber at the viewer's
-    // current pose. No unstable SLAM-scale animation or tracking interruption.
-    placeChamber();
-    stage='chamber';hidePrompt();
-    installOracleTarget();
-    $('instruction').textContent='触碰发光的符号';
-    $('detail').textContent='';
-    $('oracleTrigger').textContent='触碰发光的符号';
-    setStatus('INSIDE THE MATRIX · TRACKING NORMAL');
+    stopVoice();clearStageTimer();hidePrompt();
+    stage='transition';$('oracleTrigger').hidden=true;
+    transitionGroup(miniCube,miniCube.userData.sceneAlpha??1,0,.95,()=>{
+      disposeMini();
+      placeChamber();
+      stage='chamber';hidePrompt();
+      installOracleTarget();
+      transitionGroup(chamber,0,1,1.4);
+      $('instruction').textContent='触碰发光的符号';
+      $('detail').textContent='';
+      $('oracleTrigger').hidden=false;
+      $('oracleTrigger').textContent='触碰发光的符号';
+      setStatus('INSIDE THE MATRIX · TRACKING NORMAL');
+    });
   }
   function disposeChamber(){
     if(!chamber)return;
@@ -576,8 +705,37 @@
   }
   function openPortal(){
     if(!chamber||portalOpen)return;
+    // Preserve the doorway's original glyphs as a separate overlay.
+    // Their fade exposes the opening without suddenly deleting its pixels.
+    const old=chamberGeometry().geo;
+    const doorGeometry=new THREE.BufferGeometry();
+    const oldPos=old.getAttribute('position'),oldUV=old.getAttribute('uv'),oldColor=old.getAttribute('color');
+    const pp=[],uu=[],cc=[],ii=[];
+    for(let g=0;g<oldPos.count/4;g++){
+      let x=0,y=0,z=0;for(let q=0;q<4;q++){
+        x+=oldPos.getX(g*4+q)/4;y+=oldPos.getY(g*4+q)/4;z+=oldPos.getZ(g*4+q)/4;
+      }
+      if(Math.abs(z+DEPTH/2)>.004||Math.abs(x)>WIDTH*(PORTAL.colEnd-PORTAL.colStart+1)/(2*COLS)||y>HEIGHT*.3)continue;
+      const p=pp.length/3;
+      for(let q=0;q<4;q++){
+        const v=g*4+q;pp.push(oldPos.getX(v),oldPos.getY(v),oldPos.getZ(v)-.002);
+        uu.push(oldUV.getX(v),oldUV.getY(v));
+        cc.push(oldColor.getX(v),oldColor.getY(v),oldColor.getZ(v));
+      }
+      ii.push(p,p+1,p+2,p,p+2,p+3);
+    }
+    doorGeometry.setAttribute('position',new THREE.Float32BufferAttribute(pp,3));
+    doorGeometry.setAttribute('uv',new THREE.Float32BufferAttribute(uu,2));
+    doorGeometry.setAttribute('color',new THREE.Float32BufferAttribute(cc,3));
+    doorGeometry.setIndex(ii);old.dispose();
+    const disappearingDoor=new THREE.Group();
+    disappearingDoor.add(new THREE.Mesh(doorGeometry,chamberMaterial.clone()));
+    chamber.add(disappearingDoor);
     portalOpen=true;
     rebuildChamberContent();
+    transitionGroup(disappearingDoor,1,0,1.25,()=>{
+      chamber.remove(disappearingDoor);doorGeometry.dispose();
+    });
     stage='portal';hidePrompt();
     $('oracleTrigger').hidden=true;
     // The discovery halo belongs to the question, not the book sequence.
@@ -682,6 +840,7 @@
     // only look at the portal and need not move closer.
     bookGroup.position.set(0,.0,-1.24);
     chamber.add(bookGroup);
+    transitionGroup(bookGroup,0,1,1.15);
     updateBookPanel(false);
     $('bookAction').disabled=false;
     $('instruction').textContent='轻触书籍以打开';
@@ -860,6 +1019,7 @@
         updateCameraShade();
         const now=performance.now();
         animateFadingGlyphs(now);
+        updateSceneTransitions(now);
         updateOpeningGlitch(now);
         if(miniCube && (stage==='mini'||stage==='ready')){
           // The GROUP is fixed in world space; only its local orientation spins.
