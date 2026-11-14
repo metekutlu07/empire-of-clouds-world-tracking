@@ -469,7 +469,7 @@
       if(miniCipherClock>.65){miniCipherClock=0;substituteGlyphs(miniCube?.children.find(o=>o.isMesh),3);}
     } else if(stage==='chamber'){
       wallCipherClock+=dt;
-      if(wallCipherClock>1.27){wallCipherClock=0;circulateWallBands();}
+      if(wallCipherClock>.635){wallCipherClock=0;circulateWallBands();}
     } else if(stage==='lattice'){
       latticeCipherClock+=dt;
       if(latticeCipherClock>.45){
@@ -579,29 +579,29 @@
   function enterLattice(){
     latticeTimer=null;
     if(stage!=='portal'||!scene||!camera||!chamber)return;
-    // Keep the chamber group in memory for its book placement, but remove
-    // the walls from the scene. The visitor now inhabits a volumetric field.
     stage='latticeTransition';$('oracleTrigger').hidden=true;
+    // Four full seconds have elapsed since the portal appeared.
+    // Remove the chamber completely BEFORE revealing any of the new field.
     transitionGroup(chamber,chamber.userData.sceneAlpha??1,0,1.0,()=>{
+      if(stage!=='latticeTransition')return;
       scene.remove(chamber);
+      disposeLattice();
+      lattice=new THREE.Group();
+      lattice.add(buildLatticeLines());
+      lattice.add(buildLatticeGlyphs());
+      makeLatticeKey();
+      lattice.position.copy(camera.position);
+      const forward=new THREE.Vector3();
+      camera.getWorldDirection(forward);
+      lattice.rotation.y=Math.atan2(-forward.x,-forward.z);
+      scene.add(lattice);
       stage='lattice';
+      transitionGroup(lattice,0,1,1.85,null,.32,1);
+      $('oracleTrigger').textContent='触碰发光的符号';
       $('oracleTrigger').hidden=false;
+      $('instruction').textContent='触碰发光的符号';
+      setStatus('VOLUMETRIC MATRIX · TRACKING NORMAL');
     });
-    disposeLattice();
-    lattice=new THREE.Group();
-    lattice.add(buildLatticeLines());
-    lattice.add(buildLatticeGlyphs());
-    makeLatticeKey();
-    lattice.position.copy(camera.position);
-    const forward=new THREE.Vector3();
-    camera.getWorldDirection(forward);
-    lattice.rotation.y=Math.atan2(-forward.x,-forward.z);
-    scene.add(lattice);
-    transitionGroup(lattice,0,1,1.85,null,.32,1);
-    $('oracleTrigger').textContent='触碰发光的符号';
-    $('oracleTrigger').hidden=false;
-    $('instruction').textContent='触碰发光的符号';
-    setStatus('VOLUMETRIC MATRIX · TRACKING NORMAL');
   }
 
   function revealBookFromLattice(){
@@ -750,7 +750,7 @@
     // Hold the architectural opening for exactly three seconds, then reveal
     // the second, spatial matrix. This is cancellable via RESTART.
     if(latticeTimer)clearTimeout(latticeTimer);
-    latticeTimer=setTimeout(enterLattice,3000);
+    latticeTimer=setTimeout(enterLattice,4000);
   }
 
 
