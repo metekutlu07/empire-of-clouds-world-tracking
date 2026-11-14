@@ -195,9 +195,9 @@ header .artistName{white-space:nowrap!important;word-break:keep-all!important;
   opacity:.16;background:repeating-linear-gradient(0deg,transparent 0 3px,#9effcf20 3px 4px)}
 #gate::after{content:"";position:absolute;inset:-20%;z-index:1;pointer-events:none;
   opacity:0;background:linear-gradient(90deg,#ff63cb44,transparent 27%,#65ffb633,transparent 75%);
-  animation:fullPageGlitch 7.2s steps(2,end) infinite}
+  animation:fullPageGlitch 3.6s steps(2,end) infinite}
 #gate .mark,#gate .gateIntro,#gate #start{position:relative;z-index:2;
-  animation:pageGlitchText 7.2s steps(2,end) infinite}
+  animation:pageGlitchText 3.6s steps(2,end) infinite}
 @keyframes fullPageGlitch{
   0%,8%,11%,100%{opacity:0;transform:translateX(-120%)}
   8.3%{opacity:.42;transform:translateX(-20%)}
@@ -237,9 +237,9 @@ body.experienceStarted header .projectIdentity{animation:interfaceReveal .7s eas
  font-size:16px!important;letter-spacing:.06em!important;white-space:nowrap}
 #gate .glitchBand{position:absolute!important;inset:0!important;pointer-events:none!important;
  z-index:5!important;opacity:0;mix-blend-mode:screen}
-#gate .glitchBand1{animation:horizontalSliceOne 6.4s steps(2,end) infinite}
-#gate .glitchBand2{animation:horizontalSliceTwo 6.4s steps(2,end) infinite}
-#gate .glitchBand3{animation:horizontalSliceThree 6.4s steps(2,end) infinite}
+#gate .glitchBand1{animation:horizontalSliceOne 3.2s steps(2,end) infinite}
+#gate .glitchBand2{animation:horizontalSliceTwo 3.2s steps(2,end) infinite}
+#gate .glitchBand3{animation:horizontalSliceThree 3.2s steps(2,end) infinite}
 #gate.gateLeaving{animation:gateDisappear .56s ease-in forwards;pointer-events:none}
 #portalPrompt:not([hidden]),#bookPanel:not([hidden]),#finalPanel:not([hidden]),
 #hud #oracleTrigger:not([hidden]){animation:interfaceReveal .55s ease-out both}
@@ -267,3 +267,13 @@ header #reset,#hud #oracleTrigger,#bookAction,#finalEnter,
 
 /* Ghost slices use the same button geometry as the real opening. */
 #gate .glitchBand button{width:136px!important;min-width:136px!important;max-width:136px!important;height:45px!important;min-height:45px!important;max-height:45px!important;padding:0 15px!important;display:inline-flex!important;align-items:center;justify-content:center;font-size:16px!important;letter-spacing:.06em!important;white-space:nowrap;box-sizing:border-box!important;background:#f1f1f1;color:#050505;border:1px solid white}
+
+/* Test 24: equally padded, compact choice targets. Chinese glyph size unchanged. */
+#portalPrompt .portalChoices{gap:16px!important;justify-content:center!important}
+#portalPrompt .portalChoices button{
+  flex:0 0 72px!important;width:72px!important;min-width:72px!important;max-width:72px!important;
+  height:46px!important;min-height:46px!important;max-height:46px!important;
+  padding:8px!important;box-sizing:border-box!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;
+}
+#portalPrompt .answerZh{font-size:23px!important;line-height:1.1!important}
