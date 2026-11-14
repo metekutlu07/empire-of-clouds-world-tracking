@@ -1,9 +1,12 @@
-/* Empire of Clouds / Test 06 - Portal world-tracked chamber, 8th Wall SLAM. */
+/* Empire of Clouds / Test 07 - Prelude and Portal world-tracked chamber, 8th Wall SLAM. */
 (() => {
   const $ = (id) => document.getElementById(id);
   let xrStarted = false, sceneReady = false, trackingNormal = false;
   let scene = null, camera = null, chamber = null, chamberTexture = null, chamberMaterial = null, cameraShade = null;
   let portalOpen = false, glyphMesh = null, gridMesh = null, portalFrame = null;
+  let miniCube = null, stage = 'tracking', stageTimer = null, miniStart = 0;
+  // Time to appreciate the small form, then the inhabited architecture.
+  const MINI_QUESTION_DELAY = 6500, HISTORY_QUESTION_DELAY = 11000;
   const GLYPHS = [
     "⸜","⸝","⸠","⸡","⸢","⸣","⸤","⸥","⸦","⸧","⸨","⸩","⸪","⸫","⸬","⸭","⸮","ⸯ",
     "⸰","⸱","⸲","⸳","⸴","⸵","⸶","⸷","⸸","⸹","⸺","⸻",
@@ -242,6 +245,80 @@
     $('detail').textContent=count+' static glyphs · 13 × 13 cells per wall · 2.4 × 2.4 × 2.3 m';
   }
 
+
+  function clearStageTimer(){
+    if(stageTimer){clearTimeout(stageTimer);stageTimer=null;}
+  }
+  function setPrompt(title, note, yes, no){
+    $('portalTitle').textContent=title;
+    $('portalNote').textContent=note||'';
+    $('portalYes').textContent=yes;
+    $('portalNo').textContent=no;
+    $('portalPrompt').hidden=false;
+  }
+  function hidePrompt(){ $('portalPrompt').hidden=true; }
+
+  function disposeMini(){
+    if(!miniCube)return;
+    scene.remove(miniCube);
+    miniCube.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material&&o.material!==chamberMaterial)o.material.dispose();});
+    miniCube=null;
+  }
+  function showMini(){
+    if(!sceneReady || !trackingNormal || !camera)return;
+    clearStageTimer();disposeMini();disposeChamber();hidePrompt();
+    stage='mini';portalOpen=false;
+    if(!chamberTexture)chamberTexture=makeAtlas();
+    if(!chamberMaterial)chamberMaterial=new THREE.MeshBasicMaterial({
+      map:chamberTexture,transparent:true,alphaTest:.08,side:THREE.DoubleSide,
+      depthWrite:false,vertexColors:true,blending:THREE.AdditiveBlending
+    });
+    miniCube=new THREE.Group();
+    // Reuse the same lattice, scaled as one architectural artifact.
+    const {geo}=chamberGeometry();
+    miniCube.add(new THREE.Mesh(geo,chamberMaterial));
+    miniCube.add(new THREE.LineSegments(gridGeometry(),new THREE.LineBasicMaterial({
+      color:0xffffff,transparent:true,opacity:.4,depthWrite:false
+    })));
+    addCubeFrame(miniCube);
+    miniCube.scale.setScalar(.22); // 53 cm wide, about 51 cm tall
+    const forward=new THREE.Vector3();
+    camera.getWorldDirection(forward);
+    forward.y=0;
+    if(forward.lengthSq()<.01)forward.set(0,0,-1);
+    forward.normalize();
+    miniCube.position.copy(camera.position).addScaledVector(forward,1.35);
+    miniCube.position.y+=.04;
+    scene.add(miniCube);
+    miniStart=performance.now();
+    $('place').hidden=true;$('reset').hidden=false;
+    $('instruction').textContent='A miniature architecture of codes. Walk around it.';
+    $('detail').textContent='A world-anchored cube · slowly rotating · 53 cm wide';
+    setStatus('MINIATURE MATRIX · TRACKING NORMAL');
+    stageTimer=setTimeout(()=>{
+      if(stage!=='mini')return;
+      stage='ready';
+      setPrompt('ARE YOU READY TO ENTER THE MATRIX?',
+        'The architecture of codes is waiting.','YES','NOT YET');
+    }, MINI_QUESTION_DELAY);
+  }
+  function expandToChamber(){
+    if(!camera||!trackingNormal)return;
+    clearStageTimer();hidePrompt();disposeMini();
+    // The tiny artifact is replaced by a full-size chamber at the viewer's
+    // current pose. No unstable SLAM-scale animation or tracking interruption.
+    placeChamber();
+    stage='chamber';hidePrompt();
+    $('instruction').textContent='Explore the spatial matrix. Look around you.';
+    $('detail').textContent='World-anchored chamber · four walls and ceiling · 2.4 × 2.4 × 2.3 m';
+    setStatus('INSIDE THE MATRIX · TRACKING NORMAL');
+    stageTimer=setTimeout(()=>{
+      if(stage!=='chamber')return;
+      stage='history';
+      setPrompt('THE WORD “ALGORITHM” COMES FROM A MATHEMATICIAN WHO WORKED IN NINTH-CENTURY BAGHDAD. TRUE OR FALSE?',
+        'Choose an answer to reveal the threshold.','TRUE','FALSE');
+    },HISTORY_QUESTION_DELAY);
+  }
   function disposeChamber(){
     if(!chamber)return;
     scene.remove(chamber);
@@ -250,7 +327,7 @@
   }
   function placeChamber(){
     if(!sceneReady||!trackingNormal||!camera)return;
-    $('portalPrompt').hidden=true;
+    hidePrompt();
     portalOpen=false;
     disposeChamber();
     if(!chamberTexture)chamberTexture=makeAtlas();
@@ -269,22 +346,35 @@
     scene.add(chamber);
     $('instruction').textContent='Turn inside the luminous chamber.';
     $('place').hidden=true;$('reset').hidden=false;
-    $('portalPrompt').hidden=false;
     setStatus('CHAMBER FORMED · TRACKING NORMAL');
   }
   function openPortal(){
     if(!chamber||portalOpen)return;
     portalOpen=true;
     rebuildChamberContent();
-    $('portalPrompt').hidden=true;
+    stage='portal';hidePrompt();
     $('instruction').textContent='PORTAL OPEN · A passage has appeared in the front wall.';
     setStatus('PORTAL OPEN · TRACKING NORMAL');
   }
-  $('portalYes').addEventListener('click',openPortal);
-  $('portalNo').addEventListener('click',()=>{
-    $('portalPrompt').hidden=true;
-    $('instruction').textContent='The matrix remains closed. You can re-form the chamber.';
+
+  $('portalYes').addEventListener('click',()=>{
+    if(stage==='ready')expandToChamber();
+    else if(stage==='history'){
+      openPortal();
+      $('detail').textContent='Correct · al-Khwārizmī worked in ninth-century Baghdad.';
+    }
   });
+  $('portalNo').addEventListener('click',()=>{
+    if(stage==='ready'){
+      stage='mini';hidePrompt();
+      $('instruction').textContent='Explore the miniature. Restart when ready to enter.';
+      $('detail').textContent='Tap RESTART EXPERIENCE for a new journey.';
+    }else if(stage==='history'){
+      $('portalNote').textContent='Not quite. Algorithms are older, but the WORD comes from al-Khwārizmī.';
+      $('instruction').textContent='Discover the origin of the word algorithm.';
+    }
+  });
+
   function sceneModule() {
     return {
       name:'empire-anchor-scene',
@@ -297,6 +387,10 @@
       },
       onUpdate: ({processCpuResult}) => {
         updateCameraShade();
+        if(miniCube && (stage==='mini'||stage==='ready')){
+          // The GROUP is fixed in world space; only its local orientation spins.
+          miniCube.rotation.y=(performance.now()-miniStart)*0.00017;
+        }
         const reality=processCpuResult?.reality;
         if(!reality) return;
         const normal=reality.trackingStatus==='NORMAL';
@@ -304,8 +398,15 @@
           trackingNormal=normal;
           $('place').disabled=!normal;
           $('reset').disabled=!normal;
-          setStatus(normal?'TRACKING NORMAL · READY TO FORM CHAMBER':
-            'TRACKING '+(reality.trackingStatus||'INITIALIZING')+' · '+(reality.trackingReason||''));
+          if(normal && stage==='tracking')showMini();
+          else if(normal && stage!=='tracking' && stage!=='portal')
+            setStatus(stage==='chamber'?'INSIDE THE MATRIX · TRACKING NORMAL':
+              stage==='mini'||stage==='ready'?'MINIATURE MATRIX · TRACKING NORMAL':
+              'MATRIX QUESTION · TRACKING NORMAL');
+          else if(!normal) setStatus('TRACKING LIMITED · MOVE PHONE SLOWLY');
+          /* Original status fallback intentionally disabled while scenes are active. */
+          /* setStatus(normal?'TRACKING NORMAL · READY TO FORM CHAMBER':
+            'TRACKING '+(reality.trackingStatus||'INITIALIZING')+' · '+(reality.trackingReason||'')); */
         }
       }
     };
@@ -352,6 +453,6 @@
       setTimeout(()=>{if(!xrStarted){$('start').disabled=false;$('start').textContent='RETRY WORLD TRACKING';fail('8th Wall engine did not become ready.');}},15000);
     }
   });
-  $('place').addEventListener('click',placeChamber);
-  $('reset').addEventListener('click',placeChamber);
+  $('place').addEventListener('click',showMini);
+  $('reset').addEventListener('click',showMini);
 })();
