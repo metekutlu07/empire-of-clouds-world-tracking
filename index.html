@@ -7,7 +7,7 @@
 <!-- Avoid an unstyled first-paint before the stylesheet reaches mobile Safari. -->
 <style>html.boot-pending body{visibility:hidden!important}</style>
 <script>document.documentElement.classList.add('boot-pending');setTimeout(function(){document.documentElement.classList.remove('boot-pending')},3500)</script>
-<link rel="stylesheet" href="style.css?v=23" onload="document.documentElement.classList.remove('boot-pending')" onerror="document.documentElement.classList.remove('boot-pending')">
+<link rel="stylesheet" href="style.css?v=24" onload="document.documentElement.classList.remove('boot-pending')" onerror="document.documentElement.classList.remove('boot-pending')">
 <!-- SLAM binary distributed separately by 8th Wall, subject to its own license. -->
 <script defer src="https://cdn.jsdelivr.net/npm/three@0.146.0/build/three.min.js"></script>
 <!-- Official 8th Wall full-window canvas support, including orientation changes. -->
@@ -15,7 +15,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js" crossorigin="anonymous" data-preload-chunks="slam"></script>
 <!-- Use classic GLTFLoader with the SAME global Three.js as 8th Wall. -->
 <script defer src="https://cdn.jsdelivr.net/npm/three@0.146.0/examples/js/loaders/GLTFLoader.js"></script>
-<script defer src="app.js?v=23"></script>
+<script defer src="app.js?v=24"></script>
 </head>
 <body>
 <canvas id="camerafeed"></canvas>
