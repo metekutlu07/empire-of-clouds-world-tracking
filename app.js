@@ -261,7 +261,7 @@
   }
   function rebuildChamberContent(){
     if(!chamber)return;
-    if(glyphMesh){chamber.remove(glyphMesh);glyphMesh.geometry.dispose();}
+    if(glyphMesh){unregisterFadingGlyphs(glyphMesh);chamber.remove(glyphMesh);glyphMesh.geometry.dispose();}
     if(gridMesh){chamber.remove(gridMesh);gridMesh.geometry.dispose();gridMesh.material.dispose();}
     if(portalFrame){
       chamber.remove(portalFrame);
@@ -274,7 +274,7 @@
       depthWrite:false,depthTest:true
     }));
     gridMesh.renderOrder=5;chamber.add(gridMesh);
-    glyphMesh=new THREE.Mesh(geo,chamberMaterial);
+    glyphMesh=registerFadingGlyphs(new THREE.Mesh(geo,chamberMaterial));
     glyphMesh.renderOrder=10;chamber.add(glyphMesh);
     addPortalFrame(chamber);
     $('detail').textContent=count+' static glyphs · 15 × 15 cells per wall · 2.4 × 2.4 × 2.3 m';
@@ -304,68 +304,122 @@
     if(!lattice)return;
     if(scene)scene.remove(lattice);
     lattice.traverse(o=>{
+      unregisterFadingGlyphs(o);
       if(o.geometry)o.geometry.dispose();
       if(o.material && o.material!==chamberMaterial)o.material.dispose();
     });
     lattice=null;latticeTarget=null;latticeGlow=null;
   }
 
-  function buildLatticeGlyphs(){
-    // One mesh, 180 glyphs, on a genuine 3D Cartesian lattice.
-    // A slight stagger creates parallax without losing the geometric logic.
-    const positions=[],uvs=[],colors=[],indices=[];
-    const stepX=.40,stepY=.43,stepZ=.40;
-    let index=0;
-    for(let z=0;z<6;z++)for(let y=0;y<5;y++)for(let x=0;x<6;x++){
-      // No glyphs directly in the middle of the viewer's face.
-      const px=(x-2.5)*stepX,py=(y-2)*stepY,pz=(z-2.5)*stepZ;
-      if(Math.abs(px)<.28 && Math.abs(py)<.26 && Math.abs(pz)<.28)continue;
-      const cell=(x*31+y*53+z*17+11)%GLYPHS.length;
-      const col=cell%ATLAS_COLS,row=Math.floor(cell/ATLAS_COLS);
-      const pad=.14;
-      const l=(col+pad)/ATLAS_COLS,r=(col+1-pad)/ATLAS_COLS;
-      const top=1-(row+pad)/ATLAS_ROWS,bottom=1-(row+1-pad)/ATLAS_ROWS;
-      const size=.13;
-      const vert=positions.length/3;
-      positions.push(
-        px-size/2,py-size/2,pz, px+size/2,py-size/2,pz,
-        px+size/2,py+size/2,pz, px-size/2,py+size/2,pz
-      );
-      uvs.push(l,bottom,r,bottom,r,top,l,top);
-      const tint=index%15===0?[1,.30,.74]:index%4===0?[.25,1,.60]:[1,1,1];
-      for(let k=0;k<4;k++)colors.push(...tint);
-      indices.push(vert,vert+1,vert+2,vert,vert+2,vert+3);
-      index++;
+
+  // Test 21: triple horizontal samples in both X and Z, with 70% of the
+  // previous cell spacing. One indexed mesh keeps the mobile draw count low.
+  const LATTICE_X=18, LATTICE_Y=5, LATTICE_Z=18;
+  const LATTICE_STEP_X=.40*.70, LATTICE_STEP_Y=.43*.70, LATTICE_STEP_Z=.40*.70;
+
+  // Each glyph fades independently. No per-glyph meshes or timers: a single
+  // dynamic vertex-color buffer is refreshed at a modest rate on mobile.
+  const fadingMeshes=new Set();
+  function registerFadingGlyphs(mesh){
+    if(!mesh?.geometry?.getAttribute('color'))return mesh;
+    const colors=mesh.geometry.getAttribute('color');
+    const base=new Float32Array(colors.array);
+    const count=Math.floor(colors.count/4);
+    const phases=new Float32Array(count);
+    const speeds=new Float32Array(count);
+    for(let i=0;i<count;i++){
+      phases[i]=(i*.61803398875%1)*Math.PI*2;
+      speeds[i]=.55+((i*37)%101)/101*.75;
     }
+    mesh.userData.fadeData={base,phases,speeds,colors,count};
+    fadingMeshes.add(mesh);
+    return mesh;
+  }
+  function unregisterFadingGlyphs(mesh){
+    if(mesh)fadingMeshes.delete(mesh);
+  }
+  let lastFadeUpdate=0;
+  function animateFadingGlyphs(now){
+    if(now-lastFadeUpdate<67)return;
+    lastFadeUpdate=now;
+    const seconds=now*.001;
+    for(const mesh of fadingMeshes){
+      if(!mesh.parent||!mesh.visible)continue;
+      const f=mesh.userData.fadeData;
+      if(!f)continue;
+      const dest=f.colors.array;
+      for(let i=0;i<f.count;i++){
+        const wave=.5+.5*Math.sin(seconds*f.speeds[i]+f.phases[i]);
+        // Smooth emergence and disappearance, but never all glyphs at once.
+        const eased=wave*wave*(3-2*wave);
+        const fade=.025+.975*eased;
+        const offset=i*12;
+        for(let k=0;k<12;k++)dest[offset+k]=f.base[offset+k]*fade;
+      }
+      f.colors.needsUpdate=true;
+    }
+  }
+
+  function buildLatticeGlyphs(){
+    const positions=[],uvs=[],colors=[],indices=[];
+    let index=0;
+    for(let z=0;z<LATTICE_Z;z++)
+      for(let y=0;y<LATTICE_Y;y++)
+        for(let x=0;x<LATTICE_X;x++){
+          const px=(x-(LATTICE_X-1)/2)*LATTICE_STEP_X;
+          const py=(y-(LATTICE_Y-1)/2)*LATTICE_STEP_Y;
+          const pz=(z-(LATTICE_Z-1)/2)*LATTICE_STEP_Z;
+          // Leave a small breathing space around the visitor's face.
+          if(Math.abs(px)<.20&&Math.abs(py)<.18&&Math.abs(pz)<.20)continue;
+          const cell=(x*31+y*53+z*17+11)%GLYPHS.length;
+          const col=cell%ATLAS_COLS,row=Math.floor(cell/ATLAS_COLS);
+          const pad=.14;
+          const l=(col+pad)/ATLAS_COLS,r=(col+1-pad)/ATLAS_COLS;
+          const top=1-(row+pad)/ATLAS_ROWS,bottom=1-(row+1-pad)/ATLAS_ROWS;
+          const size=.108;
+          const vert=positions.length/3;
+          positions.push(
+            px-size/2,py-size/2,pz,px+size/2,py-size/2,pz,
+            px+size/2,py+size/2,pz,px-size/2,py+size/2,pz
+          );
+          uvs.push(l,bottom,r,bottom,r,top,l,top);
+          const tint=index%15===0?[1,.30,.74]:index%4===0?[.25,1,.60]:[1,1,1];
+          for(let k=0;k<4;k++)colors.push(...tint);
+          indices.push(vert,vert+1,vert+2,vert,vert+2,vert+3);
+          index++;
+        }
     const geo=new THREE.BufferGeometry();
     geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
     geo.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));
     geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
     geo.setIndex(indices);
+    geo.computeBoundingSphere();
     const mesh=new THREE.Mesh(geo,chamberMaterial);
     mesh.renderOrder=10;
-    return mesh;
+    return registerFadingGlyphs(mesh);
   }
 
   function buildLatticeLines(){
-    // Intersecting lines in all three axes, rather than another wall surface.
-    const pts=[],xRange=[-1,1],yRange=[-.86,.86],zRange=[-1,1];
-    for(let x=0;x<6;x++)for(let y=0;y<5;y++){
-      const xx=(x-2.5)*.4,yy=(y-2)*.43;
-      pts.push(xx,yy,zRange[0],xx,yy,zRange[1]);
+    const pts=[];
+    const minX=-(LATTICE_X-1)/2*LATTICE_STEP_X, maxX=-minX;
+    const minY=-(LATTICE_Y-1)/2*LATTICE_STEP_Y, maxY=-minY;
+    const minZ=-(LATTICE_Z-1)/2*LATTICE_STEP_Z, maxZ=-minZ;
+    for(let x=0;x<LATTICE_X;x++)for(let y=0;y<LATTICE_Y;y++){
+      const xx=minX+x*LATTICE_STEP_X,yy=minY+y*LATTICE_STEP_Y;
+      pts.push(xx,yy,minZ,xx,yy,maxZ);
     }
-    for(let x=0;x<6;x++)for(let z=0;z<6;z++){
-      const xx=(x-2.5)*.4,zz=(z-2.5)*.4;
-      pts.push(xx,yRange[0],zz,xx,yRange[1],zz);
+    for(let x=0;x<LATTICE_X;x++)for(let z=0;z<LATTICE_Z;z++){
+      const xx=minX+x*LATTICE_STEP_X,zz=minZ+z*LATTICE_STEP_Z;
+      pts.push(xx,minY,zz,xx,maxY,zz);
     }
-    for(let y=0;y<5;y++)for(let z=0;z<6;z++){
-      const yy=(y-2)*.43,zz=(z-2.5)*.4;
-      pts.push(xRange[0],yy,zz,xRange[1],yy,zz);
+    for(let y=0;y<LATTICE_Y;y++)for(let z=0;z<LATTICE_Z;z++){
+      const yy=minY+y*LATTICE_STEP_Y,zz=minZ+z*LATTICE_STEP_Z;
+      pts.push(minX,yy,zz,maxX,yy,zz);
     }
     const geo=new THREE.BufferGeometry();
     geo.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));
     const lines=new THREE.LineSegments(geo,new THREE.LineBasicMaterial({
-      color:0xc5ffe1,transparent:true,opacity:.17,depthWrite:false
+      color:0xc5ffe1,transparent:true,opacity:.125,depthWrite:false
     }));
     lines.renderOrder=5;
     return lines;
@@ -440,7 +494,7 @@
   function disposeMini(){
     if(!miniCube)return;
     scene.remove(miniCube);
-    miniCube.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material&&o.material!==chamberMaterial)o.material.dispose();});
+    miniCube.traverse(o=>{unregisterFadingGlyphs(o);if(o.geometry)o.geometry.dispose();if(o.material&&o.material!==chamberMaterial)o.material.dispose();});
     miniCube=null;
   }
   function showMini(){
@@ -455,7 +509,7 @@
     miniCube=new THREE.Group();
     // Reuse the same lattice, scaled as one architectural artifact.
     const {geo}=chamberGeometry();
-    miniCube.add(new THREE.Mesh(geo,chamberMaterial));
+    miniCube.add(registerFadingGlyphs(new THREE.Mesh(geo,chamberMaterial)));
     miniCube.add(new THREE.LineSegments(gridGeometry(),new THREE.LineBasicMaterial({
       color:0xffffff,transparent:true,opacity:.4,depthWrite:false
     })));
@@ -494,7 +548,7 @@
     if(!chamber)return;
     disposeLattice();disposeBooks();
     scene.remove(chamber);
-    chamber.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material&&o.material!==chamberMaterial)o.material.dispose();});
+    chamber.traverse(o=>{unregisterFadingGlyphs(o);if(o.geometry)o.geometry.dispose();if(o.material&&o.material!==chamberMaterial)o.material.dispose();});
     chamber=null;glyphMesh=null;gridMesh=null;portalFrame=null;oracleTarget=null;
   }
   function placeChamber(){
@@ -779,6 +833,17 @@
     }else if(stage==='clouds')oracleResponse('no');
   });
 
+
+  // A restrained visual interference on the miniature's first appearance:
+  // brief, rare horizontal phase shifts. Tracking coordinates are untouched.
+  function updateOpeningGlitch(now){
+    if(stage!=='mini'||!miniCube)return;
+    const phase=((now-miniStart)/1000)%7.5;
+    const glitch=phase>.48&&phase<.64;
+    miniCube.children.forEach((child,i)=>{
+      if(child.isMesh)child.position.x=glitch?Math.sin(now*.11+i)*.008:0;
+    });
+  }
   function sceneModule() {
     return {
       name:'empire-anchor-scene',
@@ -793,9 +858,13 @@
       },
       onUpdate: ({processCpuResult}) => {
         updateCameraShade();
+        const now=performance.now();
+        animateFadingGlyphs(now);
+        updateOpeningGlitch(now);
         if(miniCube && (stage==='mini'||stage==='ready')){
           // The GROUP is fixed in world space; only its local orientation spins.
-          miniCube.rotation.y=(performance.now()-miniStart)*0.00017;
+          miniCube.rotation.y=(now-miniStart)*0.00017;
+          miniCube.position.y+=Math.sin(now*.018)*.000035;
         }
         if(latticeGlow && stage==='lattice'){
           const pulse=1+.075*Math.sin(performance.now()*.0025);
