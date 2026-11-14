@@ -90,3 +90,29 @@ header #reset[hidden]{display:none!important}
 #finalPanel{padding:22px 18px}
 #finalPanel h2{font-size:20px}
 footer{display:none!important}
+
+/* TEST 17: Chinese-first oracle dialogue, more deliberate vertical rhythm. */
+#portalPrompt{width:min(88vw,350px);padding:23px 18px 24px;top:44%}
+#portalPrompt h2{
+  font-size:clamp(21px,5.8vw,27px);line-height:1.35;
+  letter-spacing:.07em;margin:9px 0 2px;
+  font-weight:400;
+}
+#portalPrompt #portalNote{
+  max-width:300px;margin:0 auto 29px;
+  color:rgba(229,247,238,.82);
+  font-size:11px;line-height:1.35;
+  letter-spacing:.12em;
+}
+#portalPrompt .portalChoices{gap:12px;align-items:stretch}
+#portalPrompt .portalChoices button{
+  flex:1;min-width:0;max-width:150px;
+  min-height:78px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:7px;
+  padding:12px 9px;font-size:inherit;
+}
+#portalPrompt .answerZh{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC",sans-serif;
+  font-size:23px;line-height:1.2;letter-spacing:.05em;font-weight:500;
+}
+#portalPrompt .answerEn{font-size:10px;letter-spacing:.17em;font-weight:400;opacity:.78;line-height:1}
