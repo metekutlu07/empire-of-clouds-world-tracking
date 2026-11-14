@@ -56,3 +56,37 @@ body:has(#bookPanel:not([hidden])) #hud #instruction,body:has(#finalPanel:not([h
 
 /* Test 13: once initialization begins, never reveal the full-screen intro again. */
 #gate[hidden]{display:none!important}
+
+/* TEST 16: exhibition interface. One instruction, one action; AR is the hero. */
+header{z-index:8;align-items:center!important;background:linear-gradient(#0008,transparent);}
+header strong{font-size:10px;white-space:nowrap}
+header #reset{pointer-events:auto;margin:0 0 0 auto!important;
+  padding:8px 10px!important;min-height:34px!important;
+  color:#ecfff3;background:rgba(0,0,0,.45);border:1px solid rgba(211,255,232,.4);
+  font-size:9px!important;letter-spacing:.08em;white-space:nowrap}
+header #reset[hidden]{display:none!important}
+#gate{gap:18px}
+#gate .mark{font-size:37px}
+#gate .gateIntro{margin:0;color:#c0c0c0;font-size:13px}
+#gate #start{min-height:46px;padding:13px 22px;font-size:11px}
+#hud{bottom:calc(35px + env(safe-area-inset-bottom));gap:0}
+#hud #place,#hud #detail,#hud #instruction{display:none!important}
+#hud #tracking{display:none}
+#hud #tracking.issue{display:block;margin-bottom:10px;max-width:85vw;font-size:10px}
+#hud #oracleTrigger{margin:0!important;min-height:38px!important;padding:10px 14px!important;
+  background:rgba(2,9,7,.62);border:1px solid rgba(179,255,212,.6);
+  letter-spacing:.08em;font-size:11px!important}
+#bookPanel{bottom:calc(50px + env(safe-area-inset-bottom));width:min(86vw,330px)}
+#bookCount,#bookHint{display:none!important}
+#bookTitle{font-size:13px;letter-spacing:.16em;margin-bottom:13px}
+#bookAction{min-height:38px;padding:10px 16px;font-size:11px;background:rgba(4,14,11,.7)}
+#portalPrompt{background:rgba(5,8,9,.76);border-color:rgba(180,255,215,.35);
+  box-shadow:0 0 20px rgba(62,255,163,.06);padding:18px 15px}
+#portalPrompt .portalMark{font-size:20px}
+#portalPrompt h2{font-size:clamp(18px,4.8vw,23px);margin:10px 0 12px;line-height:1.45;letter-spacing:.045em}
+#portalPrompt #portalNote{font-size:11px}
+#portalPrompt .portalChoices{gap:10px}
+#portalPrompt .portalChoices button{min-width:92px;min-height:40px;padding:10px 12px;font-size:11px}
+#finalPanel{padding:22px 18px}
+#finalPanel h2{font-size:20px}
+footer{display:none!important}
