@@ -32,3 +32,8 @@ header,footer {z-index:4}
 .portalChoices{display:flex;justify-content:center;gap:12px}
 .portalChoices button{min-width:92px;padding:12px 14px;min-height:44px}
 #portalNo{background:transparent;color:white;border-color:#7c8c86}
+
+/* Test 07: miniaturized prelude and two-stage question. */
+#portalPrompt {top:43%;}
+#portalNote {max-width:285px;margin:0 auto 14px;color:#b9c6c1;font-size:11px;line-height:1.55;letter-spacing:.015em}
+#portalNote:empty {display:none}
