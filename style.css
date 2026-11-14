@@ -20,3 +20,15 @@ header,footer {z-index:4}
 /* Test 04: camera-only tint is a 3D fullscreen plane drawn before the glyphs.
    Remove the former CSS layer which darkened the glyphs as well. */
 #cameraTint {display:none !important;}
+
+/* Test 06: portal choice lives above the world, without interrupting XR tracking. */
+#portalPrompt[hidden]{display:none!important}
+#portalPrompt{position:fixed;z-index:8;left:50%;top:44%;transform:translate(-50%,-50%);
+  width:min(85vw,340px);padding:22px 18px 20px;text-align:center;
+  background:rgba(5,8,9,.88);border:1px solid rgba(195,255,225,.62);
+  box-shadow:0 0 30px rgba(62,255,163,.12),inset 0 0 28px rgba(62,255,163,.04);pointer-events:auto}
+#portalPrompt h2{font-size:16px;font-weight:400;letter-spacing:.14em;line-height:1.5;margin:10px 0 22px}
+.portalMark{font-size:28px;color:#a7ffcf;text-shadow:0 0 14px #4cff9c}
+.portalChoices{display:flex;justify-content:center;gap:12px}
+.portalChoices button{min-width:92px;padding:12px 14px;min-height:44px}
+#portalNo{background:transparent;color:white;border-color:#7c8c86}
