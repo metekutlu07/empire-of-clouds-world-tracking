@@ -375,6 +375,13 @@
     rebuildChamberContent();
     stage='portal';hidePrompt();
     $('oracleTrigger').hidden=true;
+    // The discovery halo belongs to the question, not the book sequence.
+    if(oracleTarget?.parent){
+      const targetGroup=oracleTarget.parent;
+      chamber.remove(targetGroup);
+      targetGroup.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose();});
+      oracleTarget=null;
+    }
     $('instruction').textContent='PORTAL OPEN · The five books await.';
     setStatus('PORTAL OPEN · TRACKING NORMAL');
     beginBooks();
@@ -392,27 +399,28 @@
   }
 
   function makeBookPath(){
-    // A short sideways curl of *glyphs*, not a corridor extending into the room.
-    // Path occupies under 85 cm and requires no physical walking.
+    // A low, compact, right-turning string of small glyphs. No walkway.
     bookPath=new THREE.Group();
-    const mat=new THREE.MeshBasicMaterial({
-      map:chamberTexture,color:0x9dffca,transparent:true,opacity:.9,
+    const material=new THREE.MeshBasicMaterial({
+      map:chamberTexture,color:0x9bffd1,transparent:true,opacity:.75,
       side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending
     });
     for(let i=0;i<12;i++){
       const t=i/11;
-      const geom=new THREE.PlaneGeometry(.12+t*.035,.12+t*.035);
+      const geom=new THREE.PlaneGeometry(.046,.046);
       const id=(i*23+11)%GLYPHS.length;
-      const col=id%ATLAS_COLS,row=Math.floor(id/ATLAS_COLS);
-      const l=(col+.11)/ATLAS_COLS,r=(col+.89)/ATLAS_COLS;
-      const bot=1-(row+.89)/ATLAS_ROWS,top=1-(row+.11)/ATLAS_ROWS;
+      const col=id%ATLAS_COLS, row=Math.floor(id/ATLAS_COLS);
+      const left=(col+.13)/ATLAS_COLS,right=(col+.87)/ATLAS_COLS;
+      const bottom=1-(row+.87)/ATLAS_ROWS,top=1-(row+.13)/ATLAS_ROWS;
       const uv=geom.attributes.uv;
-      uv.setXY(0,l,top);uv.setXY(1,r,top);uv.setXY(2,l,bot);uv.setXY(3,r,bot);
-      const symbol=new THREE.Mesh(geom,mat);
-      symbol.position.set(-.35+.78*t, -.60+.34*t, -1.02-.16*Math.sin(t*Math.PI));
-      symbol.rotation.x=-.36;
-      symbol.renderOrder=12;
-      bookPath.add(symbol);
+      uv.setXY(0,left,top);uv.setXY(1,right,top);
+      uv.setXY(2,left,bottom);uv.setXY(3,right,bottom);
+      const mesh=new THREE.Mesh(geom,material);
+      // Trail begins just inside the portal and bends to its right edge.
+      mesh.position.set(-.13+.58*t,-.99+.23*t,-1.16-.23*Math.sin(t*Math.PI/2));
+      mesh.rotation.x=-.78;
+      mesh.renderOrder=12;
+      bookPath.add(mesh);
     }
     chamber.add(bookPath);
   }
@@ -457,17 +465,22 @@
     bookGroup.add(normalized);
     // In front of the portal, on the VISITOR'S side, rather than 58 cm behind it.
     // Following the short glyph curl toward the right; no walking required.
-    bookGroup.position.set(.34,.16,-.94);
+    // GLB is modeled flat on the XZ plane (Y is book thickness).
+    // Rotate upright and face its front cover toward the viewer.
+    bookGroup.rotation.set(-Math.PI/2,Math.PI,0);
+    bookGroup.position.set(.16,-.08,-1.09);
     chamber.add(bookGroup);
     updateBookPanel(false);
     $('bookAction').disabled=false;
     $('instruction').textContent='BOOK '+(bookIndex+1)+' · LOOK TOWARD THE PORTAL';
     $('bookHint').textContent='触碰书籍 · TAP THE FLOATING BOOK TO OPEN';
   }
-  async function getBookLoader(){
-    if(bookLoader)return bookLoader;
-    const mod=await import('https://cdn.jsdelivr.net/npm/three@0.146.0/examples/jsm/loaders/GLTFLoader.js');
-    if(!bookLoader)bookLoader=new mod.GLTFLoader();
+
+  function getBookLoader(){
+    // Classic loader shares the same global THREE constructor as XR8. No
+    // duplicated Three.js module realm, import map or Safari module dependency.
+    if(!THREE.GLTFLoader)throw new Error('GLTFLoader classic script missing');
+    if(!bookLoader)bookLoader=new THREE.GLTFLoader();
     return bookLoader;
   }
   async function showBook(index){
@@ -478,19 +491,26 @@
     updateBookPanel(false);
     $('bookHint').textContent='正在加载 · LOADING BOOK…';
     $('bookAction').disabled=true;
+    const file='book-'+(index+1)+'.glb';
+    const sources=[
+      'https://cdn.jsdelivr.net/gh/metekutlu07/empire-of-clouds@main/3d/'+file,
+      'https://raw.githubusercontent.com/metekutlu07/empire-of-clouds/main/3d/'+file,
+      'https://empireofclouds.com/3d/'+file
+    ];
     try{
-      const loader=await getBookLoader();
-      if(serial!==bookSerial||stage!=='books')return;
-      // Original models hosted at the author's official site.
-      const source='https://empireofclouds.com/3d/book-'+(index+1)+'.glb';
-      const gltf=await loader.loadAsync(source);
-      mountBook(gltf,serial);
-    }catch(err){
+      const loader=getBookLoader();
+      let loaded=null, lastError=null;
+      for(const url of sources){
+        if(serial!==bookSerial||stage!=='books')return;
+        try{ loaded=await loader.loadAsync(url); break; }
+        catch(e){lastError=e;console.warn('Book asset source failed:',url,e);}
+      }
+      if(!loaded)throw lastError||new Error('All book sources failed');
+      mountBook(loaded,serial);
+    }catch(e){
       if(serial!==bookSerial)return;
-      console.error('Book loading failed',err);
-      $('bookHint').textContent='Could not load 3D book. Please check connection.';
-      $('bookAction').disabled=true;
-      // Visible diagnostic instead of silently leaving the visitor without a book.
+      console.error('Book '+(index+1)+' load failed',e);
+      $('bookHint').textContent='3D book failed to load · '+(e?.message||'Network error');
       $('instruction').textContent='BOOK '+(index+1)+' COULD NOT LOAD';
     }
   }
