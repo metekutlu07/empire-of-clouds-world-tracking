@@ -284,16 +284,12 @@
     $('portalNote').textContent=note||'';
     // Chinese is the primary choice; English is a smaller supporting label.
     for(const [id,label] of [['portalYes',yes],['portalNo',no]]){
-      const [zh,en]=label.split(' · ');
       const btn=$(id);
       btn.replaceChildren();
       const primary=document.createElement('span');
       primary.className='answerZh';
-      primary.textContent=zh;
-      const secondary=document.createElement('span');
-      secondary.className='answerEn';
-      secondary.textContent=en||'';
-      btn.append(primary,secondary);
+      primary.textContent=label;
+      btn.append(primary);
     }
     $('portalPrompt').hidden=false;
   }
@@ -333,10 +329,10 @@
     scene.add(miniCube);
     miniStart=performance.now();
     $('place').hidden=true;$('reset').hidden=false;
-    $('instruction').textContent='触碰矩阵 · TOUCH THE MATRIX';
+    $('instruction').textContent='触碰矩阵';
     $('detail').textContent='';
     $('oracleTrigger').hidden=false;
-    $('oracleTrigger').textContent='触碰矩阵 · TOUCH THE MATRIX';
+    $('oracleTrigger').textContent='触碰矩阵';
     setStatus('MINIATURE MATRIX · TRACKING NORMAL');
   }
   function expandToChamber(){
@@ -347,9 +343,9 @@
     placeChamber();
     stage='chamber';hidePrompt();
     installOracleTarget();
-    $('instruction').textContent='触碰发光的符号 · TOUCH THE GLOWING SYMBOLS';
+    $('instruction').textContent='触碰发光的符号';
     $('detail').textContent='';
-    $('oracleTrigger').textContent='唤醒云 · AWAKEN THE CLOUD';
+    $('oracleTrigger').textContent='触碰发光的符号';
     setStatus('INSIDE THE MATRIX · TRACKING NORMAL');
   }
   function disposeChamber(){
@@ -419,10 +415,10 @@
   }
   function updateBookPanel(opened){
     $('bookPanel').hidden=false;
-    $('bookCount').textContent='BOOK I';
-    $('bookTitle').textContent=BOOKS[bookIndex].toUpperCase();
-    $('bookHint').textContent=opened?'书已打开 · BOOK OPEN':'触碰书籍 · TAP THE BOOK TO OPEN';
-    $('bookAction').textContent=opened?'继续 · CONTINUE':'打开书籍 · OPEN THE BOOK';
+    $('bookCount').textContent='第一卷';
+    $('bookTitle').textContent='东方之风';
+    $('bookHint').textContent=opened?'书已打开':'轻触书籍以打开';
+    $('bookAction').textContent=opened?'继续':'轻触书籍以打开';
   }
 
   function mountBook(gltf,serial){
@@ -489,8 +485,8 @@
     chamber.add(bookGroup);
     updateBookPanel(false);
     $('bookAction').disabled=false;
-    $('instruction').textContent='BOOK '+(bookIndex+1)+' · LOOK TOWARD THE PORTAL';
-    $('bookHint').textContent='触碰书籍 · TAP THE FLOATING BOOK TO OPEN';
+    $('instruction').textContent='轻触书籍以打开';
+    $('bookHint').textContent='轻触书籍以打开';
   }
 
 
@@ -520,7 +516,7 @@
     if(bookGroup)chamber.remove(bookGroup);
     bookGroup=null;bookMixer=null;bookIndex=0;bookOpening=false;bookOpened=false;
     updateBookPanel(false);
-    $('bookHint').textContent='正在加载 · LOADING BOOK…';
+    $('bookHint').textContent='书籍正在加载…';
     $('bookAction').disabled=true;
     try{
       const gltf=preloadedBook||await preloadBook();
@@ -530,7 +526,7 @@
     }catch(err){
       if(serial!==bookSerial)return;
       console.error('Book I load failed',err);
-      $('bookHint').textContent='BOOK I COULD NOT LOAD';
+      $('bookHint').textContent='书籍加载失败，请重试';
     }
   }
   function finishBookOpening(){
@@ -540,7 +536,7 @@
     if(stage!=='books'||!bookGroup||bookOpening)return;
     if(!bookOpened){
       bookOpened=true;bookOpening=true;bookStart=performance.now();
-      $('bookHint').textContent='书正在打开 · BOOK OPENING…';
+      $('bookHint').textContent='书籍正在打开…';
       $('bookAction').disabled=true;
       if(!bookMixer||!bookDuration)finishBookOpening();
     }else{
@@ -559,14 +555,14 @@
     if(stage!=='mini')return;
     stage='ready';
     $('oracleTrigger').hidden=true;
-    setPrompt(LINES.enter,'ARE YOU READY TO ENTER THE MATRIX?','是 · YES','否 · NO');
+    setPrompt(LINES.enter,'','是','否');
     speak(LINES.enter);
   }
   function awakenCloud(){
     if(stage!=='chamber')return;
     stage='clouds';
     $('oracleTrigger').hidden=true;
-    setPrompt(LINES.clouds,'CAN CLOUDS THINK?','会 · YES','不会 · NO');
+    setPrompt(LINES.clouds,'','会','不会');
     speak(LINES.clouds);
   }
   function oracleResponse(answer){
@@ -629,8 +625,8 @@
   $('portalNo').addEventListener('click',()=>{
     if(stage==='ready'){
       hidePrompt();stage='mini';stopVoice();
-      $('instruction').textContent='触碰矩阵 · TOUCH THE MATRIX';
-      $('oracleTrigger').textContent='触碰矩阵 · TOUCH THE MATRIX';
+      $('instruction').textContent='触碰矩阵';
+      $('oracleTrigger').textContent='触碰矩阵';
       $('oracleTrigger').hidden=false;
     }else if(stage==='clouds')oracleResponse('no');
   });
