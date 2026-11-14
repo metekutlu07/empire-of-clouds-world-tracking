@@ -9,6 +9,7 @@
   const BOOKS=['Eastern Winds','Cosmic Cryptography','Pigment Turbulence','The Crystal Matrix','Synthetic Minds'];
   let bookGroup=null,bookPath=null,bookMixer=null,bookDuration=0,bookIndex=0,
       bookOpening=false,bookOpened=false,bookStart=0,bookSerial=0,bookLoader=null;
+  let preloadedBook=null,preloadPromise=null;
   const LINES = {
     enter:'你准备好进入矩阵了吗？',
     clouds:'云会思考吗？',
@@ -382,7 +383,7 @@
       targetGroup.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose();});
       oracleTarget=null;
     }
-    $('instruction').textContent='PORTAL OPEN · The five books await.';
+    $('instruction').textContent='PORTAL OPEN · A book is waiting beyond the threshold.';
     setStatus('PORTAL OPEN · TRACKING NORMAL');
     beginBooks();
   }
@@ -398,49 +399,41 @@
     bookGroup=null;bookPath=null;bookMixer=null;bookOpening=false;bookOpened=false;
   }
 
-  function makeBookPath(){
-    // A low, compact, right-turning string of small glyphs. No walkway.
-    bookPath=new THREE.Group();
-    const material=new THREE.MeshBasicMaterial({
-      map:chamberTexture,color:0x9bffd1,transparent:true,opacity:.75,
-      side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending
-    });
-    for(let i=0;i<12;i++){
-      const t=i/11;
-      const geom=new THREE.PlaneGeometry(.046,.046);
-      const id=(i*23+11)%GLYPHS.length;
-      const col=id%ATLAS_COLS, row=Math.floor(id/ATLAS_COLS);
-      const left=(col+.13)/ATLAS_COLS,right=(col+.87)/ATLAS_COLS;
-      const bottom=1-(row+.87)/ATLAS_ROWS,top=1-(row+.13)/ATLAS_ROWS;
-      const uv=geom.attributes.uv;
-      uv.setXY(0,left,top);uv.setXY(1,right,top);
-      uv.setXY(2,left,bottom);uv.setXY(3,right,bottom);
-      const mesh=new THREE.Mesh(geom,material);
-      // Trail begins just inside the portal and bends to its right edge.
-      mesh.position.set(-.13+.58*t,-.99+.23*t,-1.16-.23*Math.sin(t*Math.PI/2));
-      mesh.rotation.x=-.78;
-      mesh.renderOrder=12;
-      bookPath.add(mesh);
-    }
-    chamber.add(bookPath);
-  }
   function beginBooks(){
-    disposeBooks();stage='books';bookIndex=0;
+    disposeBooks();
+    stage='books';bookIndex=0;
     $('oracleTrigger').hidden=true;
-    makeBookPath();showBook(0);
+    showBook(0);
   }
   function updateBookPanel(opened){
     $('bookPanel').hidden=false;
-    $('bookCount').textContent='BOOK '+['I','II','III','IV','V'][bookIndex]+' / V';
+    $('bookCount').textContent='BOOK I';
     $('bookTitle').textContent=BOOKS[bookIndex].toUpperCase();
     $('bookHint').textContent=opened?'书已打开 · BOOK OPEN':'触碰书籍 · TAP THE BOOK TO OPEN';
-    $('bookAction').textContent=opened?(bookIndex===4?'继续 · CONTINUE':'下一卷 · NEXT BOOK'):
-      '打开书籍 · OPEN THE BOOK';
+    $('bookAction').textContent=opened?'继续 · CONTINUE':'打开书籍 · OPEN THE BOOK';
   }
 
   function mountBook(gltf,serial){
     if(serial!==bookSerial||stage!=='books'||!chamber)return;
     const model=gltf.scene;
+    // GLB PBR materials have metallicFactor 1 and the AR scene has no lights.
+    // Reuse embedded color textures on unlit materials so actual covers render.
+    model.traverse(o=>{
+      if(!o.isMesh)return;
+      const fix=m=>{
+        const texture=m.map||m.emissiveMap||null;
+        if(texture){
+          texture.colorSpace=THREE.SRGBColorSpace||texture.colorSpace;
+          texture.needsUpdate=true;
+        }
+        return new THREE.MeshBasicMaterial({
+          map:texture,color:m.color?m.color.clone():new THREE.Color(0xffffff),
+          transparent:m.transparent||m.alphaTest>0,alphaTest:m.alphaTest||0,
+          side:THREE.DoubleSide,opacity:m.opacity===undefined?1:m.opacity
+        });
+      };
+      o.material=Array.isArray(o.material)?o.material.map(fix):fix(o.material);
+    });
     // Start animation before computing bounds. Root and cover transforms are
     // animated, so the book's rest geometry must not be permanently recentered.
     if(gltf.animations?.length){
@@ -468,7 +461,11 @@
     // GLB is modeled flat on the XZ plane (Y is book thickness).
     // Rotate upright and face its front cover toward the viewer.
     bookGroup.rotation.set(-Math.PI/2,Math.PI,0);
-    bookGroup.position.set(.16,-.08,-1.09);
+    // User test confirmed the book was upside down: roll 180° on view axis.
+    bookGroup.rotateOnWorldAxis(new THREE.Vector3(0,0,1),Math.PI);
+    // Immediately at the threshold, slightly beyond its plane; viewer need
+    // only look at the portal and need not move closer.
+    bookGroup.position.set(0,.0,-1.24);
     chamber.add(bookGroup);
     updateBookPanel(false);
     $('bookAction').disabled=false;
@@ -476,42 +473,44 @@
     $('bookHint').textContent='触碰书籍 · TAP THE FLOATING BOOK TO OPEN';
   }
 
+
   function getBookLoader(){
-    // Classic loader shares the same global THREE constructor as XR8. No
-    // duplicated Three.js module realm, import map or Safari module dependency.
-    if(!THREE.GLTFLoader)throw new Error('GLTFLoader classic script missing');
+    if(!THREE.GLTFLoader)throw new Error('GLTFLoader unavailable');
     if(!bookLoader)bookLoader=new THREE.GLTFLoader();
     return bookLoader;
   }
-  async function showBook(index){
+  function preloadBook(){
+    if(preloadPromise)return preloadPromise;
+    const source='https://empireofclouds.com/3d/book-1.glb';
+    const fallback='https://raw.githubusercontent.com/metekutlu07/empire-of-clouds/main/3d/book-1.glb';
+    preloadPromise=(async()=>{
+      const loader=getBookLoader();
+      try{return await loader.loadAsync(source);}
+      catch(err){
+        console.warn('Official book asset unavailable; trying GitHub',err);
+        return await loader.loadAsync(fallback);
+      }
+    })();
+    preloadPromise.then(gltf=>{preloadedBook=gltf;},e=>{console.warn('Book preloading failed',e);preloadPromise=null;});
+    return preloadPromise;
+  }
+  async function showBook(){
     if(stage!=='books'||!chamber)return;
     const serial=++bookSerial;
     if(bookGroup)chamber.remove(bookGroup);
-    bookGroup=null;bookMixer=null;bookIndex=index;bookOpening=false;bookOpened=false;
+    bookGroup=null;bookMixer=null;bookIndex=0;bookOpening=false;bookOpened=false;
     updateBookPanel(false);
     $('bookHint').textContent='正在加载 · LOADING BOOK…';
     $('bookAction').disabled=true;
-    const file='book-'+(index+1)+'.glb';
-    const sources=[
-      'https://cdn.jsdelivr.net/gh/metekutlu07/empire-of-clouds@main/3d/'+file,
-      'https://raw.githubusercontent.com/metekutlu07/empire-of-clouds/main/3d/'+file,
-      'https://empireofclouds.com/3d/'+file
-    ];
     try{
-      const loader=getBookLoader();
-      let loaded=null, lastError=null;
-      for(const url of sources){
-        if(serial!==bookSerial||stage!=='books')return;
-        try{ loaded=await loader.loadAsync(url); break; }
-        catch(e){lastError=e;console.warn('Book asset source failed:',url,e);}
-      }
-      if(!loaded)throw lastError||new Error('All book sources failed');
-      mountBook(loaded,serial);
-    }catch(e){
+      const gltf=preloadedBook||await preloadBook();
+      if(serial!==bookSerial||stage!=='books')return;
+      // Use one real model, never request Books II–V.
+      mountBook(gltf,serial);
+    }catch(err){
       if(serial!==bookSerial)return;
-      console.error('Book '+(index+1)+' load failed',e);
-      $('bookHint').textContent='3D book failed to load · '+(e?.message||'Network error');
-      $('instruction').textContent='BOOK '+(index+1)+' COULD NOT LOAD';
+      console.error('Book I load failed',err);
+      $('bookHint').textContent='BOOK I COULD NOT LOAD';
     }
   }
   function finishBookOpening(){
@@ -524,9 +523,10 @@
       $('bookHint').textContent='书正在打开 · BOOK OPENING…';
       $('bookAction').disabled=true;
       if(!bookMixer||!bookDuration)finishBookOpening();
-    }else if(bookIndex<4){
-      showBook(bookIndex+1);
     }else{
+      // Second tap ends the encounter with the book, it does not close it.
+      if(bookGroup&&chamber)chamber.remove(bookGroup);
+      bookGroup=null;bookMixer=null;
       stage='final';$('bookPanel').hidden=true;$('finalPanel').hidden=false;
       $('instruction').textContent='THE FINAL THRESHOLD';
       speak('想要发现隐藏的真相吗？只剩最后一步。');
@@ -623,6 +623,8 @@
         camera.position.set(0,1.6,0);
         installCameraShade();
         sceneReady=true;
+        // Download the sole book once while the visitor explores the matrix.
+        preloadBook().catch(e=>console.warn('Preload unavailable',e));
         $('instruction').textContent='Move your phone slowly to let the camera map the room.';
       },
       onUpdate: ({processCpuResult}) => {
@@ -637,7 +639,7 @@
         }
         if(bookOpening&&bookMixer&&bookDuration){
           const t=Math.min(1,(performance.now()-bookStart)/3200);
-          bookMixer.setTime(bookDuration*t*t*(3-2*t));
+          bookMixer.setTime(bookDuration*.5*t*t*(3-2*t));
           if(t>=1)finishBookOpening();
         }
         const reality=processCpuResult?.reality;
