@@ -1,4 +1,4 @@
-/* Empire of Clouds / Test 04 - Static world-tracked chamber, 8th Wall SLAM. */
+/* Empire of Clouds / Test 05 - Static world-tracked chamber, 8th Wall SLAM. */
 (() => {
   const $ = (id) => document.getElementById(id);
   let xrStarted = false, sceneReady = false, trackingNormal = false;
@@ -31,20 +31,28 @@
 
   // A texture atlas means hundreds of symbols can share one material and one draw call.
   // Their symbols stay STATIC: no animation, shader motion or camera-facing billboards.
-  const ATLAS_COLS = 16, ATLAS_ROWS = Math.ceil(GLYPHS.length / ATLAS_COLS), TILE = 80;
+  const ATLAS_COLS = 16, ATLAS_ROWS = Math.ceil(GLYPHS.length / ATLAS_COLS), TILE = 112;
   function makeAtlas() {
     const canvas = document.createElement('canvas');
     canvas.width = ATLAS_COLS * TILE;
     canvas.height = ATLAS_ROWS * TILE;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#e6ffef';
+    ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = '49px "Noto Sans Symbols 2","Noto Sans",Arial Unicode MS,serif';
+    ctx.font = '60px "Noto Sans Symbols 2","Noto Sans",Arial Unicode MS,serif';
     for (let i = 0; i < GLYPHS.length; i++) {
       const col = i % ATLAS_COLS, row = Math.floor(i / ATLAS_COLS);
-      ctx.fillText(GLYPHS[i], col * TILE + TILE / 2, row * TILE + TILE / 2 + 2);
+      const x=col*TILE+TILE/2,y=row*TILE+TILE/2+2;
+      // Soft glow is baked into the atlas. The same glyph also gets a crisp core.
+      ctx.shadowColor = 'rgba(255,255,255,0.92)';
+      ctx.shadowBlur = 17;
+      ctx.fillText(GLYPHS[i],x,y);
+      ctx.shadowBlur = 7;
+      ctx.fillText(GLYPHS[i],x,y);
+      ctx.shadowBlur = 0;
+      ctx.fillText(GLYPHS[i],x,y);
     }
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace || tex.colorSpace;
@@ -79,12 +87,12 @@
                           Math.abs(2*0.25/p[5])*1.04, 1);
   }
 
-  const WIDTH=2.4, DEPTH=2.4, HEIGHT=2.3, COLS=12, ROWS=12;
+  const WIDTH=2.4, DEPTH=2.4, HEIGHT=2.3, COLS=13, ROWS=13;
   function chamberGeometry() {
     const vertices = [], uv = [], colors = [], indices = [];
     let count = 0;
     const add = (cx,cy,cz,ux,uy,uz,vx,vy,vz,ceiling) => {
-      const size = ceiling ? .102 : .113;
+      const size = ceiling ? .109 : .124;
       const corners=[-1,-1,1,-1,1,1,-1,1];
       const start=vertices.length/3;
       for(let q=0;q<4;q++) {
@@ -97,14 +105,16 @@
       const left=(col+pad)/ATLAS_COLS, right=(col+1-pad)/ATLAS_COLS;
       const top=1-(row+pad)/ATLAS_ROWS, bottom=1-(row+1-pad)/ATLAS_ROWS;
       uv.push(left,bottom,right,bottom,right,top,left,top);
-      const tint=count%23===0?[.45,1,.75]:
-        count%6===0?[.52,.68,.62]:[.91,1,.95];
+      // Clear color hierarchy inspired by the original website:
+      // chalk-white majority, luminous jade green, occasional pink.
+      const tint=count%13===0?[1.0,.24,.72]:
+        count%4===0?[.14,1.0,.53]:[1.0,1.0,1.0];
       for(let q=0;q<4;q++)colors.push(...tint);
       indices.push(start,start+1,start+2,start,start+2,start+3);
       count++;
     };
 
-    // Four continuous wall panels, 12 x 12 cells each.
+    // Four continuous wall panels, 13 x 13 cells each.
     for(let wall=0;wall<4;wall++) {
       for(let row=0;row<ROWS;row++)for(let col=0;col<COLS;col++) {
         if((col*11+row*7+wall*17)%19===0)continue;
@@ -117,9 +127,9 @@
       }
     }
     // Ceiling is lighter; no floor lattice, so walking remains comfortable.
-    for(let z=0;z<12;z++)for(let x=0;x<12;x++) {
+    for(let z=0;z<COLS;z++)for(let x=0;x<COLS;x++) {
       if((x*3+z*5)%4===0)continue;
-      add(((x+.5)/12-.5)*WIDTH,HEIGHT/2,((z+.5)/12-.5)*DEPTH,
+      add(((x+.5)/COLS-.5)*WIDTH,HEIGHT/2,((z+.5)/COLS-.5)*DEPTH,
           1,0,0,0,0,1,true);
     }
     const geo=new THREE.BufferGeometry();
@@ -157,9 +167,9 @@
         }
       }
     }
-    // Ceiling lattice, 12 x 12 rectangular cells.
-    for(let i=0;i<=12;i++) {
-      const x=(i/12-.5)*WIDTH,z=(i/12-.5)*DEPTH;
+    // Ceiling lattice, 13 x 13 rectangular cells.
+    for(let i=0;i<=COLS;i++) {
+      const x=(i/COLS-.5)*WIDTH,z=(i/COLS-.5)*DEPTH;
       line(x,HEIGHT/2,-DEPTH/2,x,HEIGHT/2,DEPTH/2);
       line(-WIDTH/2,HEIGHT/2,z,WIDTH/2,HEIGHT/2,z);
     }
@@ -203,7 +213,7 @@
     chamber.rotation.y=Math.atan2(-forward.x,-forward.z);
     scene.add(chamber);
     $('instruction').textContent='Turn through the room. The GRID and GLYPHS stay fixed in space.';
-    $('detail').textContent=count+' static glyphs · 12 × 12 cells per wall · 2.4 × 2.4 × 2.3 m';
+    $('detail').textContent=count+' static glyphs · 13 × 13 cells per wall · 2.4 × 2.4 × 2.3 m';
     $('place').hidden=true;
     $('reset').hidden=false;
     setStatus('CHAMBER FORMED · TRACKING NORMAL');
