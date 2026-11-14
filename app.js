@@ -1,7 +1,7 @@
 /* Empire of Clouds / Test 07 - Prelude and Portal world-tracked chamber, 8th Wall SLAM. */
 (() => {
   const $ = (id) => document.getElementById(id);
-  let xrStarted = false, sceneReady = false, trackingNormal = false;
+  let xrStarted = false, startRequested = false, sceneReady = false, trackingNormal = false;
   let scene = null, camera = null, chamber = null, chamberTexture = null, chamberMaterial = null, cameraShade = null;
   let portalOpen = false, glyphMesh = null, gridMesh = null, portalFrame = null;
   let miniCube = null, stage = 'tracking', miniStart = 0, oracleTarget = null;
@@ -416,21 +416,33 @@
   function mountBook(gltf,serial){
     if(serial!==bookSerial||stage!=='books'||!chamber)return;
     const model=gltf.scene;
-    // GLB PBR materials have metallicFactor 1 and the AR scene has no lights.
-    // Reuse embedded color textures on unlit materials so actual covers render.
+    // The original glTF covers are very dark PBR textures. Preserve their
+    // real image maps, but render without the absent HDR environment and with
+    // a moderate gamma lift so dark colors remain visible on a dim camera.
     model.traverse(o=>{
       if(!o.isMesh)return;
-      const fix=m=>{
-        const texture=m.map||m.emissiveMap||null;
+      const fix=(old)=>{
+        const texture=old.map||old.emissiveMap||null;
         if(texture){
           texture.colorSpace=THREE.SRGBColorSpace||texture.colorSpace;
           texture.needsUpdate=true;
         }
-        return new THREE.MeshBasicMaterial({
-          map:texture,color:m.color?m.color.clone():new THREE.Color(0xffffff),
-          transparent:m.transparent||m.alphaTest>0,alphaTest:m.alphaTest||0,
-          side:THREE.DoubleSide,opacity:m.opacity===undefined?1:m.opacity
+        const material=new THREE.MeshBasicMaterial({
+          map:texture,color:0xffffff,side:THREE.DoubleSide,
+          transparent:old.transparent||old.alphaTest>0,
+          alphaTest:old.alphaTest||0,
+          opacity:old.opacity===undefined?1:old.opacity,
+          toneMapped:false
         });
+        // Lift shadow tones without replacing the original artwork.
+        material.onBeforeCompile=(shader)=>{
+          shader.fragmentShader=shader.fragmentShader.replace(
+            '#include <map_fragment>',
+            '#include <map_fragment>\n diffuseColor.rgb = pow(max(diffuseColor.rgb, vec3(0.0)), vec3(0.67));'
+          );
+        };
+        material.customProgramCacheKey=()=> 'book-color-lift-v13';
+        return material;
       };
       o.material=Array.isArray(o.material)?o.material.map(fix):fix(o.material);
     });
@@ -460,9 +472,10 @@
     // Following the short glyph curl toward the right; no walking required.
     // GLB is modeled flat on the XZ plane (Y is book thickness).
     // Rotate upright and face its front cover toward the viewer.
-    bookGroup.rotation.set(-Math.PI/2,Math.PI,0);
-    // User test confirmed the book was upside down: roll 180° on view axis.
-    bookGroup.rotateOnWorldAxis(new THREE.Vector3(0,0,1),Math.PI);
+    // Original book lies in XZ (the long spine dimension is local Z).
+    // Rotate local +Z upward, not downward; its cover faces the viewer.
+    // A slight 10° lean displays the cover and open pages naturally.
+    bookGroup.rotation.set(-Math.PI/2 + .17,0,0);
     // Immediately at the threshold, slightly beyond its plane; viewer need
     // only look at the portal and need not move closer.
     bookGroup.position.set(0,.0,-1.24);
@@ -697,11 +710,23 @@
     }catch(e){fail('Engine initialization failed: '+(e.stack||e.message));}
   }
   $('start').addEventListener('click',()=>{
-    $('start').disabled=true;$('start').textContent='LOADING SLAM ENGINE…';
+    if(startRequested)return;
+    startRequested=true;
+    $('start').disabled=true;
+    // The opening splash is shown only once. Subsequent initialization
+    // progress lives in the HUD, not a repeated full-screen intro.
+    $('gate').hidden=true;$('gate').style.display='none';
+    $('hud').hidden=false;
+    setStatus('LOADING WORLD TRACKING…');
     if(window.XR8)startXR();
     else{
       window.addEventListener('xrloaded',startXR,{once:true});
-      setTimeout(()=>{if(!xrStarted){$('start').disabled=false;$('start').textContent='RETRY WORLD TRACKING';fail('8th Wall engine did not become ready.');}},15000);
+      setTimeout(()=>{
+        if(!xrStarted){
+          startRequested=false;
+          fail('World tracking engine did not become ready. Reload to retry.');
+        }
+      },15000);
     }
   });
   $('place').addEventListener('click',showMini);
