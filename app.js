@@ -438,10 +438,10 @@
         material.onBeforeCompile=(shader)=>{
           shader.fragmentShader=shader.fragmentShader.replace(
             '#include <map_fragment>',
-            '#include <map_fragment>\n diffuseColor.rgb = pow(max(diffuseColor.rgb, vec3(0.0)), vec3(0.67));'
+            '#include <map_fragment>\n diffuseColor.rgb = min(vec3(1.0), pow(max(diffuseColor.rgb, vec3(0.0)), vec3(0.48)) * 1.32);'
           );
         };
-        material.customProgramCacheKey=()=> 'book-color-lift-v13';
+        material.customProgramCacheKey=()=> 'book-color-lift-v14';
         return material;
       };
       o.material=Array.isArray(o.material)?o.material.map(fix):fix(o.material);
@@ -472,10 +472,10 @@
     // Following the short glyph curl toward the right; no walking required.
     // GLB is modeled flat on the XZ plane (Y is book thickness).
     // Rotate upright and face its front cover toward the viewer.
-    // Original book lies in XZ (the long spine dimension is local Z).
-    // Rotate local +Z upward, not downward; its cover faces the viewer.
-    // A slight 10° lean displays the cover and open pages naturally.
-    bookGroup.rotation.set(-Math.PI/2 + .17,0,0);
+    // Match the original Book I model-viewer:
+    // orientation='0deg 0deg 0deg', camera-orbit='0deg 82deg 0.85m'.
+    // The GLB already contains a rotated root. Extra rotation inverted the cover.
+    bookGroup.rotation.set(0,0,0);
     // Immediately at the threshold, slightly beyond its plane; viewer need
     // only look at the portal and need not move closer.
     bookGroup.position.set(0,.0,-1.24);
