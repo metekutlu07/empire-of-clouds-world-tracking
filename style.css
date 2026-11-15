@@ -195,9 +195,9 @@ header .artistName{white-space:nowrap!important;word-break:keep-all!important;
   opacity:.16;background:repeating-linear-gradient(0deg,transparent 0 3px,#9effcf20 3px 4px)}
 #gate::after{content:"";position:absolute;inset:-20%;z-index:1;pointer-events:none;
   opacity:0;background:linear-gradient(90deg,#ff63cb44,transparent 27%,#65ffb633,transparent 75%);
-  animation:fullPageGlitch 3.6s steps(2,end) infinite}
+  animation:fullPageGlitch 1.8s steps(2,end) infinite}
 #gate .mark,#gate .gateIntro,#gate #start{position:relative;z-index:2;
-  animation:pageGlitchText 3.6s steps(2,end) infinite}
+  animation:pageGlitchText 1.8s steps(2,end) infinite}
 @keyframes fullPageGlitch{
   0%,8%,11%,100%{opacity:0;transform:translateX(-120%)}
   8.3%{opacity:.42;transform:translateX(-20%)}
@@ -237,9 +237,9 @@ body.experienceStarted header .projectIdentity{animation:interfaceReveal .7s eas
  font-size:16px!important;letter-spacing:.06em!important;white-space:nowrap}
 #gate .glitchBand{position:absolute!important;inset:0!important;pointer-events:none!important;
  z-index:5!important;opacity:0;mix-blend-mode:screen}
-#gate .glitchBand1{animation:horizontalSliceOne 3.2s steps(2,end) infinite}
-#gate .glitchBand2{animation:horizontalSliceTwo 3.2s steps(2,end) infinite}
-#gate .glitchBand3{animation:horizontalSliceThree 3.2s steps(2,end) infinite}
+#gate .glitchBand1{animation:horizontalSliceOne 1.6s steps(2,end) infinite}
+#gate .glitchBand2{animation:horizontalSliceTwo 1.6s steps(2,end) infinite}
+#gate .glitchBand3{animation:horizontalSliceThree 1.6s steps(2,end) infinite}
 #gate.gateLeaving{animation:gateDisappear .56s ease-in forwards;pointer-events:none}
 #portalPrompt:not([hidden]),#bookPanel:not([hidden]),#finalPanel:not([hidden]),
 #hud #oracleTrigger:not([hidden]){animation:interfaceReveal .55s ease-out both}
