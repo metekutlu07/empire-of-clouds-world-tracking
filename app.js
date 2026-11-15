@@ -887,11 +887,25 @@
     // orientation='0deg 0deg 0deg', camera-orbit='0deg 82deg 0.85m'.
     // The GLB already contains a rotated root. Extra rotation inverted the cover.
     bookGroup.rotation.set(0,0,0);
-    // Immediately at the threshold, slightly beyond its plane; viewer need
-    // only look at the portal and need not move closer.
-    bookGroup.position.set(0,.0,-1.24);
+    // Anchor Book I in FRONT OF THE VISITOR at the moment it materializes.
+    // Previously it was fixed at chamber-local (0, 0, -1.24), which could be
+    // behind or beside the visitor after exploring the 3D lattice.
+    // Read the current tracked camera orientation once and retain a world
+    // anchor, so it does not follow the phone after appearing.
+    camera.updateMatrixWorld(true);
+    chamber.updateMatrixWorld(true);
+    const facing=new THREE.Vector3();
+    camera.getWorldDirection(facing);
+    const bookWorldPosition=camera.getWorldPosition(new THREE.Vector3())
+      .addScaledVector(facing,0.98);
+    bookGroup.position.copy(chamber.worldToLocal(bookWorldPosition));
+    // In the model's successful earlier orientation, the front cover faces
+    // local +Z. Turn that face towards the camera without adding X-axis tilt.
+    const visitorLocal=chamber.worldToLocal(camera.getWorldPosition(new THREE.Vector3()));
+    const toVisitor=visitorLocal.sub(bookGroup.position);
+    bookGroup.rotation.set(0,Math.atan2(toVisitor.x,toVisitor.z),0);
     chamber.add(bookGroup);
-    transitionGroup(bookGroup,0,1,1.15);
+    transitionGroup(bookGroup,0,1,1.25);
     updateBookPanel(false);
     $('bookAction').disabled=false;
     $('instruction').textContent='轻触书籍以打开';
@@ -925,6 +939,7 @@
     if(bookGroup)chamber.remove(bookGroup);
     bookGroup=null;bookMixer=null;bookIndex=0;bookOpening=false;bookOpened=false;
     updateBookPanel(false);
+    $('bookAction').onclick=null;
     $('bookHint').textContent='书籍正在加载…';
     $('bookAction').disabled=true;
     try{
@@ -936,6 +951,13 @@
       if(serial!==bookSerial)return;
       console.error('Book I load failed',err);
       $('bookHint').textContent='书籍加载失败，请重试';
+      $('bookAction').disabled=false;
+      $('bookAction').textContent='重试加载';
+      $('bookAction').onclick=()=>{
+        $('bookAction').onclick=null;
+        preloadPromise=null;preloadedBook=null;
+        showBook();
+      };
     }
   }
   function finishBookOpening(){
