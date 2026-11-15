@@ -809,8 +809,8 @@
   function disposeBooks(){
     bookSerial++;
     $('bookPanel').hidden=true;$('finalPanel').hidden=true;
-    if(bookGroup&&chamber)chamber.remove(bookGroup);
-    if(bookPath&&chamber)chamber.remove(bookPath);
+    if(bookGroup)bookGroup.removeFromParent();
+    if(bookPath)bookPath.removeFromParent();
     if(bookPath)bookPath.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)o.material.dispose();});
     bookGroup=null;bookPath=null;bookMixer=null;bookOpening=false;bookOpened=false;
   }
@@ -879,33 +879,23 @@
     normalized.position.copy(center).multiplyScalar(-fit);
     normalized.add(model);
     bookGroup.add(normalized);
-    // In front of the portal, on the VISITOR'S side, rather than 58 cm behind it.
-    // Following the short glyph curl toward the right; no walking required.
-    // GLB is modeled flat on the XZ plane (Y is book thickness).
-    // Rotate upright and face its front cover toward the viewer.
-    // Match the original Book I model-viewer:
-    // orientation='0deg 0deg 0deg', camera-orbit='0deg 82deg 0.85m'.
-    // The GLB already contains a rotated root. Extra rotation inverted the cover.
-    bookGroup.rotation.set(0,0,0);
-    // Anchor Book I in FRONT OF THE VISITOR at the moment it materializes.
-    // Previously it was fixed at chamber-local (0, 0, -1.24), which could be
-    // behind or beside the visitor after exploring the 3D lattice.
-    // Read the current tracked camera orientation once and retain a world
-    // anchor, so it does not follow the phone after appearing.
+    // The chamber was faded to zero and removed during the previous scene.
+    // Do not parent the book under it: give Book I a fresh scene-level anchor.
+    // Sample the latest camera pose once, keeping the model world-tracked.
     camera.updateMatrixWorld(true);
-    chamber.updateMatrixWorld(true);
-    const facing=new THREE.Vector3();
-    camera.getWorldDirection(facing);
-    const bookWorldPosition=camera.getWorldPosition(new THREE.Vector3())
-      .addScaledVector(facing,0.98);
-    bookGroup.position.copy(chamber.worldToLocal(bookWorldPosition));
-    // In the model's successful earlier orientation, the front cover faces
-    // local +Z. Turn that face towards the camera without adding X-axis tilt.
-    const visitorLocal=chamber.worldToLocal(camera.getWorldPosition(new THREE.Vector3()));
-    const toVisitor=visitorLocal.sub(bookGroup.position);
-    bookGroup.rotation.set(0,Math.atan2(toVisitor.x,toVisitor.z),0);
-    chamber.add(bookGroup);
-    transitionGroup(bookGroup,0,1,1.25);
+    const forward=new THREE.Vector3();
+    camera.getWorldDirection(forward);
+    forward.normalize();
+    const worldPos=camera.getWorldPosition(new THREE.Vector3())
+      .addScaledVector(forward,0.92);
+    bookGroup.position.copy(worldPos);
+    // Rotate only in yaw, preserving the already-validated GLB book tilt.
+    const toViewer=new THREE.Vector3().subVectors(
+      camera.getWorldPosition(new THREE.Vector3()),worldPos);
+    bookGroup.rotation.set(0,Math.atan2(toViewer.x,toViewer.z),0);
+    scene.add(bookGroup);
+    // No inherited chamber opacity or hidden parent can mask the book.
+    transitionGroup(bookGroup,0,1,1.15);
     updateBookPanel(false);
     $('bookAction').disabled=false;
     $('instruction').textContent='轻触书籍以打开';
@@ -920,15 +910,21 @@
   }
   function preloadBook(){
     if(preloadPromise)return preloadPromise;
-    const source='https://empireofclouds.com/3d/book-1.glb';
-    const fallback='https://raw.githubusercontent.com/metekutlu07/empire-of-clouds/main/3d/book-1.glb';
+    // Some iOS/China networks stall on either origin. Race trusted sources,
+    // with a finite timeout so the book stage never remains silently blank.
+    const sources=[
+      'https://empireofclouds.com/3d/book-1.glb',
+      'https://raw.githubusercontent.com/metekutlu07/empire-of-clouds/main/3d/book-1.glb',
+      'https://cdn.jsdelivr.net/gh/metekutlu07/empire-of-clouds@main/3d/book-1.glb'
+    ];
+    const timeout=(ms)=>new Promise((_,reject)=>
+      setTimeout(()=>reject(new Error('Book asset request timed out')),ms));
     preloadPromise=(async()=>{
       const loader=getBookLoader();
-      try{return await loader.loadAsync(source);}
-      catch(err){
-        console.warn('Official book asset unavailable; trying GitHub',err);
-        return await loader.loadAsync(fallback);
-      }
+      const attempts=sources.map(src=>Promise.race([loader.loadAsync(src),timeout(14000)]));
+      // Take the first successfully decoded actual Book I model, not a
+      // placeholder. All failures propagate to the visible retry control.
+      return Promise.any(attempts);
     })();
     preloadPromise.then(gltf=>{preloadedBook=gltf;},e=>{console.warn('Book preloading failed',e);preloadPromise=null;});
     return preloadPromise;
@@ -936,21 +932,26 @@
   async function showBook(){
     if(stage!=='books'||!chamber)return;
     const serial=++bookSerial;
-    if(bookGroup)chamber.remove(bookGroup);
+    if(bookGroup)bookGroup.removeFromParent();
     bookGroup=null;bookMixer=null;bookIndex=0;bookOpening=false;bookOpened=false;
     updateBookPanel(false);
     $('bookAction').onclick=null;
     $('bookHint').textContent='书籍正在加载…';
     $('bookAction').disabled=true;
+    $('instruction').textContent='书籍正在加载…';
+    setStatus('BOOK I · LOADING 3D MODEL');
     try{
       const gltf=preloadedBook||await preloadBook();
       if(serial!==bookSerial||stage!=='books')return;
       // Use one real model, never request Books II–V.
       mountBook(gltf,serial);
+      setStatus('BOOK I · READY');
     }catch(err){
       if(serial!==bookSerial)return;
       console.error('Book I load failed',err);
       $('bookHint').textContent='书籍加载失败，请重试';
+      $('instruction').textContent='书籍加载失败，请重试';
+      setStatus('BOOK I · DOWNLOAD FAILED · RETRY');
       $('bookAction').disabled=false;
       $('bookAction').textContent='重试加载';
       $('bookAction').onclick=()=>{
@@ -972,7 +973,7 @@
       if(!bookMixer||!bookDuration)finishBookOpening();
     }else{
       // Second tap ends the encounter with the book, it does not close it.
-      if(bookGroup&&chamber)chamber.remove(bookGroup);
+      if(bookGroup)bookGroup.removeFromParent();
       bookGroup=null;bookMixer=null;
       stage='final';$('bookPanel').hidden=true;$('finalPanel').hidden=false;
       $('instruction').textContent='THE FINAL THRESHOLD';
