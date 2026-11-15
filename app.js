@@ -717,10 +717,10 @@
       stage='chamber';hidePrompt();
       installOracleTarget();
       transitionGroup(chamber,0,1,1.4);
-      $('instruction').textContent='触碰发光的符号';
+      $('instruction').textContent='环顾四周，触碰发光的圆环，开启一道门。';
       $('detail').textContent='';
       $('oracleTrigger').hidden=false;
-      $('oracleTrigger').textContent='触碰发光的符号';
+      $('oracleTrigger').textContent='环顾四周，触碰发光的圆环，开启一道门。';
       setStatus('INSIDE THE MATRIX · TRACKING NORMAL');
     });
   }
