@@ -16,30 +16,81 @@
   const LINES = {
     enter:'你准备好进入矩阵了吗？',
     clouds:'云会思考吗？',
-    yes:'也许，思想本身就是一片云。',
+    yes:'那么，也许你就是一片云。',
     no:'那么，是谁在向你提问？'
   };
+  const VOICE_FILES = new Map([
+    [LINES.enter,'audio/ready-to-enter-matrix.mp3'],
+    [LINES.clouds,'audio/can-clouds-think.mp3'],
+    [LINES.yes,'audio/you-cloud.mp3'],
+    [LINES.no,'audio/who-is-asking.mp3'],
+    ['想要发现隐藏的真相吗？只剩最后一步。','audio/final-step.mp3']
+  ]);
+  const voiceCache = new Map();
+  let activeAudio = null, voiceWatchdog = null;
+  function preloadRecordedVoices(){
+    for(const url of VOICE_FILES.values()){
+      if(voiceCache.has(url))continue;
+      const audio = new Audio(url+'?v=25');
+      audio.preload='auto';
+      audio.load();
+      voiceCache.set(url,audio);
+    }
+  }
   function stopVoice(){
     voiceToken++;
+    if(voiceWatchdog){clearTimeout(voiceWatchdog);voiceWatchdog=null;}
+    if(activeAudio){
+      activeAudio.onended=null;activeAudio.onerror=null;
+      activeAudio.pause();
+      try{activeAudio.currentTime=0;}catch(e){}
+      activeAudio=null;
+    }
     if('speechSynthesis' in window)window.speechSynthesis.cancel();
   }
-  // Test voice uses on-device Mandarin TTS. Replace with authored audio files later.
+  // Original Mandarin recordings replace speechSynthesis. To keep the live AR
+  // experience usable until the five MP3s are published alongside the app,
+  // fall back to device speech ONLY if a recording cannot be loaded.
   function speak(text,done){
-    const token=++voiceToken;
-    if(!window.speechSynthesis || !window.SpeechSynthesisUtterance){
-      if(done)done(); return;
-    }
-    window.speechSynthesis.cancel();
-    const u=new SpeechSynthesisUtterance(text);
-    u.lang='zh-CN';u.rate=.79;u.pitch=.77;
-    const zh=window.speechSynthesis.getVoices().filter(v=>/^zh/i.test(v.lang));
-    if(zh.length)u.voice=zh.find(v=>/zh-CN/i.test(v.lang))||zh[0];
+    stopVoice();
+    const token=voiceToken;
     let completed=false;
-    const finish=()=>{if(!completed&&token===voiceToken){completed=true;if(done)done();}};
-    u.onend=finish;u.onerror=finish;
-    window.speechSynthesis.speak(u);
-    // Guard against browsers never emitting onend or blocking speech.
-    setTimeout(finish,Math.max(5500,text.length*500));
+    const finish=()=>{
+      if(completed||token!==voiceToken)return;
+      completed=true;
+      if(voiceWatchdog){clearTimeout(voiceWatchdog);voiceWatchdog=null;}
+      if(done)done();
+    };
+    const fallback=()=>{
+      if(token!==voiceToken||completed)return;
+      if(!('speechSynthesis' in window)&&!window.SpeechSynthesisUtterance){
+        finish();return;
+      }
+      try{
+        const u=new SpeechSynthesisUtterance(text);
+        u.lang='zh-CN';u.rate=.79;u.pitch=.77;
+        const zh=window.speechSynthesis.getVoices().filter(v=>/^zh/i.test(v.lang));
+        if(zh.length)u.voice=zh.find(v=>/zh-CN/i.test(v.lang))||zh[0];
+        u.onend=finish;u.onerror=finish;
+        window.speechSynthesis.speak(u);
+      }catch(e){finish();}
+    };
+    const url=VOICE_FILES.get(text);
+    if(!url){fallback();voiceWatchdog=setTimeout(finish,12000);return;}
+    preloadRecordedVoices();
+    const audio=voiceCache.get(url);
+    activeAudio=audio;
+    const onFail=()=>{
+      if(token!==voiceToken||completed)return;
+      console.warn('Recorded voice unavailable: '+url);
+      if(activeAudio===audio)activeAudio=null;
+      fallback();
+    };
+    audio.onended=finish;audio.onerror=onFail;
+    try{audio.currentTime=0;}catch(e){}
+    voiceWatchdog=setTimeout(finish,Math.max(14000,Math.ceil((audio.duration||7)*1000)+3500));
+    const result=audio.play();
+    if(result?.catch)result.catch(onFail);
   }
   const GLYPHS = [
     "⸜","⸝","⸠","⸡","⸢","⸣","⸤","⸥","⸦","⸧","⸨","⸩","⸪","⸫","⸬","⸭","⸮","ⸯ",
@@ -929,7 +980,7 @@
     hidePrompt();
     const phrase=answer==='yes'?LINES.yes:LINES.no;
     $('instruction').textContent=phrase;
-    $('detail').textContent=answer==='yes'?'Perhaps thought itself is a cloud.':
+    $('detail').textContent=answer==='yes'?'Then perhaps you are a cloud.':
       'Then who is asking you this question?';
     // Door is opened only when the Chinese reply has finished.
     speak(phrase,()=>{if(stage==='response')openPortal();});
@@ -1113,6 +1164,7 @@
     }catch(e){fail('Engine initialization failed: '+(e.stack||e.message));}
   }
   $('start').addEventListener('click',()=>{
+    preloadRecordedVoices();
     if(startRequested)return;
     startRequested=true;
     $('start').disabled=true;
